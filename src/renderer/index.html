@@ -89,6 +89,7 @@
               </div>
               <button class="button primary" id="open-center"><svg><use href="#i-folder"/></svg><span data-i18n="openVideo"></span></button>
               <span class="drop-hint" data-i18n="dropHint"></span>
+              <p class="supported-formats" id="supported-formats" data-label="videoFiles"></p>
             </div>
             <div class="video-badge" id="video-badge" hidden><span></span><span id="video-resolution"></span></div>
             <div class="stage-message" id="stage-message" hidden><div class="spinner"></div><strong id="stage-message-title"></strong><p id="stage-message-hint"></p><progress id="preview-progress" max="1" value="0" hidden></progress><button class="button secondary small" id="cancel-open" data-i18n="cancel"></button></div>
@@ -147,6 +148,6 @@
     <div class="settings-section"><h3 data-i18n="windowsIntegration"></h3><div class="settings-row"><label for="context-menu" data-i18n="contextMenu"></label><input type="checkbox" role="switch" id="context-menu" disabled></div><button class="button secondary default-player-button" id="default-player" data-i18n="defaultPlayerAction" disabled></button><p class="integration-note" id="integration-note" data-i18n="installedRequired" hidden></p></div>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden><svg><use href="#i-check"/></svg><span id="toast-text"></span><button class="icon-button" id="close-toast" data-title="close"><svg><use href="#i-close"/></svg></button></div>
-  <script src="../shared/i18n.js"></script><script src="../shared/time.js"></script><script src="renderer.js"></script>
+  <script src="../shared/i18n.js"></script><script src="../shared/time.js"></script><script src="../shared/playback.js"></script><script src="renderer.js"></script>
 </body>
 </html>

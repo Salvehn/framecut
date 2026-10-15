@@ -1,16 +1,19 @@
-/* global FramecutI18n, FramecutTime */
+/* global FramecutI18n, FramecutTime, FramecutPlayback */
 'use strict';
 
 const $ = id => document.getElementById(id);
 const api = window.framecut;
 const { translate } = FramecutI18n;
 const { formatTime, parseTime, formatSize } = FramecutTime;
+const { clampToSelection, loopsSelection, playbackTime } = FramecutPlayback;
 const video = $('video');
 const state = { language: 'en', media: null, start: 0, end: 0, busy: false, exporting: false,
   previewing: false, converting: false, mode: 'copy', replacing: false, recent: [], fallbackTried: false,
   statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, version: '', update: { status: 'idle' }, share: null, sharing: false };
 const t = (key, values) => translate(state.language, key, values);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+let playbackRequested = false;
+function pausePlayback() { playbackRequested = false; video.pause(); }
 
 function unwrap(result) {
   if (result.ok) return result.value;
@@ -105,7 +108,7 @@ async function openRequest(request) {
 }
 
 async function useMedia(data) {
-  video.pause();
+  pausePlayback();
   state.thumbnailAbort?.abort();
   state.media = data;
   document.body.classList.remove('empty');
@@ -132,7 +135,7 @@ async function useMedia(data) {
 async function convertPreview() {
   if (!state.media || state.converting) return;
   state.fallbackTried = true; state.converting = true;
-  video.pause(); setBusy(true, 'preparing');
+  pausePlayback(); setBusy(true, 'preparing');
   try {
     const result = unwrap(await api.preparePreview(state.media.id));
     state.media.url = result.url;
@@ -196,6 +199,9 @@ function updateSelection() {
   $('clip-duration').textContent = formatTime(state.end - state.start, true);
   $('timeline-tag').textContent = formatTime(state.end - state.start, true);
   $('selection-times').textContent = `${formatTime(state.start, true)} — ${formatTime(state.end, true)}`;
+  $('seek').min = state.start;
+  $('seek').max = state.end;
+  $('total-time').textContent = formatTime(state.end);
   $('in-handle').style.left = `${left}%`;
   $('out-handle').style.left = `${right}%`;
   $('range-outline').style.left = `${left}%`;
@@ -220,24 +226,38 @@ function changeBoundary(boundary, value, seekTo = false) {
   state.previewing = false;
   updateSelection(); updateTransport();
   if (seekTo) seek(boundary === 'start' ? state.start : state.end);
+  else if (video.currentTime < state.start || video.currentTime > state.end) seek(video.currentTime);
+  else updatePosition();
   state.statusKey = 'selectionReady'; $('status').textContent = t(state.statusKey);
 }
 
 function seek(seconds) {
   if (!state.media || !Number.isFinite(seconds)) return;
-  video.currentTime = clamp(seconds, 0, state.media.duration);
+  video.currentTime = clampToSelection(seconds, state.start, state.end);
   updatePosition();
 }
 
 function updatePosition() {
-  const time = video.currentTime || 0;
+  let time = video.currentTime || 0;
+  if (state.media && video.readyState > 0 && !video.seeking && !state.busy && !state.exporting && !state.replacing) {
+    const target = playbackTime(time, { start: state.start, end: state.end, duration: state.media.duration }, !video.paused, state.previewing);
+    if (Math.abs(target - time) > 0.0001) { video.currentTime = target; time = target; }
+  }
   $('current-time').textContent = formatTime(time);
   $('seek').value = time;
   $('playhead').style.left = `${state.media ? clamp(time / state.media.duration * 100, 0, 100) : 0}%`;
-  if (state.previewing && time >= state.end - 0.015) {
-    video.pause(); state.previewing = false; seek(state.end); updateTransport();
-  }
 }
+
+let playbackFrame = 0;
+function trackPlayback() {
+  cancelAnimationFrame(playbackFrame);
+  const tick = () => {
+    updatePosition();
+    if (!video.paused && !video.ended) playbackFrame = requestAnimationFrame(tick);
+  };
+  tick();
+}
+const selectionLoops = () => Boolean(state.media) && loopsSelection(state.start, state.end, state.media.duration, state.previewing);
 
 function updateTransport() {
   icon($('play'), video.paused ? 'play' : 'pause');
@@ -245,16 +265,17 @@ function updateTransport() {
   title($('play'), video.paused ? 'play' : 'pause');
   icon($('mute'), video.muted || video.volume === 0 ? 'muted' : 'volume');
   title($('mute'), video.muted ? 'unmute' : 'mute');
-  $('preview').querySelector('span').textContent = t(state.previewing ? 'previewing' : 'preview');
-  icon($('preview'), state.previewing ? 'pause' : 'play');
+  const previewActive = !video.paused && selectionLoops();
+  $('preview').querySelector('span').textContent = t(previewActive ? 'previewing' : 'preview');
+  icon($('preview'), previewActive ? 'pause' : 'play');
 }
 
 async function togglePlayback() {
   if (!state.media || state.busy || state.exporting) return;
   if (video.paused) {
-    if (video.ended || video.currentTime >= state.media.duration - 0.02) seek(0);
+    if (video.ended || video.currentTime < state.start || video.currentTime >= state.end - 0.015) seek(state.start);
     try { await video.play(); } catch { toast('playbackError', true); }
-  } else { video.pause(); state.previewing = false; }
+  } else { pausePlayback(); state.previewing = false; }
   updateTransport();
 }
 
@@ -296,7 +317,7 @@ async function drawThumbnails(url) {
 async function shareSelection() {
   if (!state.media || state.busy || state.exporting) return;
   document.activeElement?.blur();
-  video.pause(); state.previewing = false;
+  pausePlayback(); state.previewing = false;
   const key = `${state.media.id}:${state.start}:${state.end}:${state.mode}`;
   state.sharing = true; state.exporting = true; updateEnabled(); updateTransport();
   try {
@@ -335,7 +356,7 @@ async function exportSelection(saveMode = 'overwrite') {
   if (!state.media || state.busy || state.exporting) return;
   // Validate a focused field before its value can be used for an export shortcut.
   document.activeElement?.blur();
-  video.pause(); state.previewing = false; state.exporting = true;
+  pausePlayback(); state.previewing = false; state.exporting = true;
   updateEnabled(); updateTransport();
   try {
     const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, saveMode }));
@@ -393,7 +414,7 @@ for (const [id, boundary] of [['in-time', 'start'], ['out-time', 'end']]) {
 }
 $('reset').addEventListener('click', () => { state.start = 0; state.end = state.media.duration; state.previewing = false; updateSelection(); updateTransport(); });
 $('preview').addEventListener('click', async () => {
-  if (state.previewing) { video.pause(); state.previewing = false; }
+  if (!video.paused && selectionLoops()) { pausePlayback(); state.previewing = false; }
   else {
     state.previewing = true; seek(state.start);
     try { await video.play(); } catch { state.previewing = false; toast('playbackError', true); }
@@ -475,7 +496,7 @@ for (const [id, boundary] of [['in-handle', 'start'], ['out-handle', 'end']]) {
   let dragging = false;
   handle.addEventListener('pointerdown', event => {
     if (handle.disabled) return;
-    event.stopPropagation(); dragging = true; video.pause(); state.previewing = false;
+    event.stopPropagation(); dragging = true; pausePlayback(); state.previewing = false;
     $('timeline-track').classList.add('dragging');
     handle.setPointerCapture(event.pointerId);
   });
@@ -503,9 +524,15 @@ $('timeline-track').addEventListener('pointerdown', event => {
 
 video.addEventListener('timeupdate', updatePosition);
 video.addEventListener('seeked', updatePosition);
-video.addEventListener('play', updateTransport);
-video.addEventListener('pause', updateTransport);
-video.addEventListener('ended', () => { state.previewing = false; updateTransport(); });
+video.addEventListener('play', () => { playbackRequested = true; trackPlayback(); updateTransport(); });
+video.addEventListener('pause', () => { if (!video.ended) playbackRequested = false; cancelAnimationFrame(playbackFrame); updateTransport(); });
+video.addEventListener('ended', async () => {
+  if (playbackRequested && selectionLoops() && !state.busy && !state.exporting && !state.replacing) {
+    seek(state.start);
+    try { await video.play(); } catch { state.previewing = false; toast('playbackError', true); }
+  } else { playbackRequested = false; state.previewing = false; }
+  updateTransport();
+});
 video.addEventListener('loadedmetadata', () => { video.playbackRate = Number($('speed').value); updateEnabled(); updatePosition(); drawThumbnails(video.src); });
 video.addEventListener('error', () => {
   if (state.converting || state.replacing || !state.media || !video.getAttribute('src')) return;
@@ -540,8 +567,8 @@ window.addEventListener('keydown', event => {
     case 'KeyO': changeBoundary('end', video.currentTime); break;
     case 'KeyF': api.windowControl('fullscreen'); break;
     case 'KeyM': $('mute').click(); break;
-    case 'Comma': video.pause(); state.previewing = false; seek(video.currentTime - 1 / (state.media.fps || 25)); updateTransport(); break;
-    case 'Period': video.pause(); state.previewing = false; seek(video.currentTime + 1 / (state.media.fps || 25)); updateTransport(); break;
+    case 'Comma': pausePlayback(); state.previewing = false; seek(video.currentTime - 1 / (state.media.fps || 25)); updateTransport(); break;
+    case 'Period': pausePlayback(); state.previewing = false; seek(video.currentTime + 1 / (state.media.fps || 25)); updateTransport(); break;
     case 'Home': seek(0); break;
     case 'End': seek(state.media.duration); break;
   }
@@ -551,12 +578,12 @@ api.onEvent(message => {
   if (message.type === 'external-media') { useMedia(message.media).catch(reportError).finally(() => setBusy(false)); }
   if (message.type === 'external-error') { setBusy(false); reportError({ code: message.code }); }
   if (message.type === 'source-replacing') {
-    state.replacing = true; state.thumbnailAbort?.abort(); video.pause(); video.removeAttribute('src'); video.load();
+    state.replacing = true; state.thumbnailAbort?.abort(); pausePlayback(); video.removeAttribute('src'); video.load();
     api.releaseSource();
   }
   if (message.type === 'source-restore') { state.replacing = false; video.src = state.media.url; video.load(); }
   if (message.type === 'update-state') renderUpdate(message.state);
-  if (message.type === 'loading') { video.pause(); setBusy(true); }
+  if (message.type === 'loading') { pausePlayback(); setBusy(true); }
   if (message.type === 'recent') { state.recent = message.items; renderRecent(); }
   if (message.type === 'preview-progress') { $('preview-progress').value = message.progress; $('stage-message-title').textContent = t('preparingProgress', { percent: Math.round(message.progress * 100) }); }
   if (message.type === 'fullscreen') document.body.classList.toggle('fullscreen', message.active);
@@ -576,6 +603,7 @@ api.onEvent(message => {
     const data = unwrap(await api.bootstrap());
     state.recent = data.recent; state.mode = data.mode;
     state.version = data.version;
+    $('supported-formats').textContent = data.videoExtensions.map(extension => extension === 'webm' ? 'WebM' : extension.toUpperCase()).join(' · ');
     $('volume').value = data.volume; video.volume = data.volume;
     $('cut-mode').value = state.mode;
     $('window-preset').value = data.windowPreset || 'standard';

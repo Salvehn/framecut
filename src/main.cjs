@@ -204,7 +204,7 @@ function registerIpc() {
       return { ok: false, code: error.code || (error.code === 'ENOENT' ? 'MISSING_FILE' : 'MEDIA_ERROR') };
     }
   });
-  handle('bootstrap', () => ({ version: app.getVersion(), language: preferences.language, volume: preferences.volume, mode: preferences.mode, saveMode: preferences.saveMode, windowPreset: preferences.windowPreset, recent: recentPublic(), update: updater.state }));
+  handle('bootstrap', () => ({ version: app.getVersion(), language: preferences.language, volume: preferences.volume, mode: preferences.mode, saveMode: preferences.saveMode, windowPreset: preferences.windowPreset, videoExtensions: integration.EXTENSIONS, recent: recentPublic(), update: updater.state }));
   handle('window-preset', async preset => {
     if (!Object.hasOwn(PRESETS, preset)) throw new Error('Unknown window preset');
     preferences.windowPreset = preset; await savePreferences();
@@ -237,7 +237,7 @@ function registerIpc() {
   handle('open-file', async () => {
     if (exporting) throw Object.assign(new Error('Busy'), { code: 'BUSY' });
     const result = await dialog.showOpenDialog(window, { title: t('openDialog'), buttonLabel: t('openVideo'), properties: ['openFile'], filters: [
-      { name: t('videoFiles'), extensions: ['mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v', 'wmv', 'mpg', 'mpeg', 'ts', 'mts', 'm2ts', 'ogv', '3gp', 'flv'] },
+      { name: t('videoFiles'), extensions: integration.EXTENSIONS },
       { name: t('allFiles'), extensions: ['*'] }
     ] });
     return result.canceled ? null : openMedia(result.filePaths[0]);
@@ -307,7 +307,7 @@ function createWindow() {
     backgroundColor: '#101114', frame: false, show: false, title: 'Framecut',
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true,
-      nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, backgroundThrottling: !smoke }
+      nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, backgroundThrottling: false }
   });
   Menu.setApplicationMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

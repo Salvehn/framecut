@@ -1,6 +1,6 @@
 {
   "name": "framecut",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A simple Windows media player with precise video trimming",
   "main": "src/main.cjs",
   "author": "Salvehn",
