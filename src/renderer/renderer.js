@@ -8,7 +8,7 @@ const { formatTime, parseTime, formatSize } = FramecutTime;
 const video = $('video');
 const state = { language: 'en', media: null, start: 0, end: 0, busy: false, exporting: false,
   previewing: false, converting: false, mode: 'copy', replacing: false, recent: [], fallbackTried: false,
-  statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, version: '', update: { status: 'idle' } };
+  statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, version: '', update: { status: 'idle' }, share: null, sharing: false };
 const t = (key, values) => translate(state.language, key, values);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -86,6 +86,7 @@ function updateEnabled() {
   $('trim-fields').disabled = !available;
   $('mode-fields').disabled = state.exporting;
   $('export').disabled = !available || state.end - state.start < 0.0399;
+  $('share').disabled = $('export').disabled;
   $('save-menu-wrap').classList.toggle('disabled', $('export').disabled);
   $('save-original').disabled = $('export').disabled; $('save-as').disabled = $('export').disabled;
   $('open-top').disabled = state.busy || state.exporting;
@@ -292,6 +293,44 @@ async function drawThumbnails(url) {
   finally { thumbnailVideo.removeAttribute('src'); thumbnailVideo.load(); }
 }
 
+async function shareSelection() {
+  if (!state.media || state.busy || state.exporting) return;
+  document.activeElement?.blur();
+  video.pause(); state.previewing = false;
+  const key = `${state.media.id}:${state.start}:${state.end}:${state.mode}`;
+  state.sharing = true; state.exporting = true; updateEnabled(); updateTransport();
+  try {
+    if (state.share?.key !== key) {
+      const clip = unwrap(await api.prepareShare({ id: state.media.id, start: state.start, end: state.end, mode: state.mode }));
+      state.share = { ...clip, key };
+    }
+    $('export-dialog').close();
+    $('share-file-info').textContent = `${formatTime(state.share.duration, true)} · ${formatSize(state.share.size, state.language)}`;
+    $('share-hint').textContent = t('dragShare');
+    if (!$('share-dialog').open) $('share-dialog').showModal();
+  } catch (error) {
+    $('export-dialog').close(); reportError(error, 'errorExport');
+    if (error.code === 'CANCELLED') toast('cancelled');
+  } finally { state.sharing = false; state.exporting = false; updateEnabled(); }
+}
+async function sendShare(target) {
+  if (!state.share) return;
+  for (const id of ['share-telegram', 'share-discord', 'share-copy']) $(id).disabled = true;
+  try {
+    const result = unwrap(await api.shareTarget(state.share.id, target));
+    $('share-hint').textContent = t(result.method === 'telegram' ? 'telegramShareReady' : 'sharePaste');
+  } catch (error) { reportError(error); }
+  finally { for (const id of ['share-telegram', 'share-discord', 'share-copy']) $(id).disabled = false; }
+}
+$('share').addEventListener('click', shareSelection);
+$('close-share').addEventListener('click', () => $('share-dialog').close());
+$('share-telegram').addEventListener('click', () => sendShare('telegram'));
+$('share-discord').addEventListener('click', () => sendShare('discord'));
+$('share-copy').addEventListener('click', () => sendShare('clipboard'));
+$('share-file').addEventListener('dragstart', event => { event.preventDefault(); if (state.share) api.dragShare(state.share.id); });
+$('share-file').addEventListener('click', () => sendShare('clipboard'));
+$('share-file').addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); sendShare('clipboard'); } });
+
 async function exportSelection(saveMode = 'overwrite') {
   if (!state.media || state.busy || state.exporting) return;
   // Validate a focused field before its value can be used for an export shortcut.
@@ -475,13 +514,13 @@ video.addEventListener('error', () => {
 });
 
 let dragDepth = 0;
-window.addEventListener('dragenter', event => { event.preventDefault(); if (event.dataTransfer.types.includes('Files')) { dragDepth++; if (!state.exporting) $('drop-overlay').hidden = false; } });
+window.addEventListener('dragenter', event => { event.preventDefault(); if (!$('share-dialog').open && event.dataTransfer.types.includes('Files')) { dragDepth++; if (!state.exporting) $('drop-overlay').hidden = false; } });
 window.addEventListener('dragover', event => { event.preventDefault(); event.dataTransfer.dropEffect = state.exporting ? 'none' : 'copy'; });
 window.addEventListener('dragleave', event => { event.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; $('drop-overlay').hidden = true; } });
 window.addEventListener('drop', async event => {
   event.preventDefault(); dragDepth = 0; $('drop-overlay').hidden = true;
   const file = event.dataTransfer.files[0];
-  if (!file || state.exporting || state.busy) return;
+  if (!file || state.exporting || state.busy || $('share-dialog').open) return;
   await openRequest(() => api.openDropped(file));
 });
 
@@ -522,7 +561,7 @@ api.onEvent(message => {
   if (message.type === 'preview-progress') { $('preview-progress').value = message.progress; $('stage-message-title').textContent = t('preparingProgress', { percent: Math.round(message.progress * 100) }); }
   if (message.type === 'fullscreen') document.body.classList.toggle('fullscreen', message.active);
   if (message.type === 'export-start') {
-    $('export-title').textContent = t('exporting'); $('export-subtitle').textContent = t('exportHint');
+    $('export-title').textContent = t(state.sharing ? 'preparingShare' : 'exporting'); $('export-subtitle').textContent = t(state.sharing ? 'temporaryShare' : 'exportHint');
     $('export-progress').value = 0; $('export-percent').textContent = '0%';
     $('export-progress-wrap').hidden = false; $('cancel-export').hidden = false; $('cancel-export').disabled = false;
     $('done-export').hidden = true; $('reveal-export').hidden = true;

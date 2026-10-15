@@ -180,6 +180,13 @@
     es: { updateTitle: 'Actualizaciones', updateFailed: 'No se pudo actualizar la aplicación', updateDownloadingVersion: 'Descargando la versión {version}', updateRestartHint: 'Framecut se reiniciará para instalar la actualización.', updateSpeed: '{size}/s' }
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], updatePanelStrings[language]);
+  const sharingStrings = {
+    en: { share: 'Share clip', copyFile: 'Copy file', dragShare: 'Drag the clip into a chat or copy it.', preparingShare: 'Preparing clip', temporaryShare: 'Temporary MP4 · no save dialog', telegramShareReady: 'Choose a recipient in Telegram.', sharePaste: 'File copied. Paste it into a chat (Ctrl+V) or drag it from here.' },
+    ru: { share: 'Поделиться', copyFile: 'Копировать файл', dragShare: 'Перетащите фрагмент в чат или скопируйте.', preparingShare: 'Подготовка фрагмента', temporaryShare: 'Временный MP4 · без сохранения вручную', telegramShareReady: 'Выберите получателя в Telegram.', sharePaste: 'Файл скопирован. Вставьте в чат (Ctrl+V) или перетащите отсюда.' },
+    de: { share: 'Clip teilen', copyFile: 'Datei kopieren', dragShare: 'Clip in einen Chat ziehen oder kopieren.', preparingShare: 'Clip wird vorbereitet', temporaryShare: 'Temporäre MP4 · kein Speicherdialog', telegramShareReady: 'Empfänger in Telegram auswählen.', sharePaste: 'Datei kopiert. Im Chat einfügen (Strg+V) oder von hier ziehen.' },
+    es: { share: 'Compartir clip', copyFile: 'Copiar archivo', dragShare: 'Arrastra el clip a un chat o cópialo.', preparingShare: 'Preparando clip', temporaryShare: 'MP4 temporal · sin diálogo de guardado', telegramShareReady: 'Elige un destinatario en Telegram.', sharePaste: 'Archivo copiado. Pégalo en un chat (Ctrl+V) o arrástralo desde aquí.' }
+  };
+  for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], sharingStrings[language]);
   const editingStrings = {
     en: { cutMode: 'Cut', cutFast: 'Fast', cutPrecise: 'Precise', newFile: 'New file', overwrite: 'Overwrite', overwriteHint: 'Replaces the original file.', overwriteAction: 'Overwrite', saveAction: 'Save' },
     ru: { cutMode: 'Обрезка', cutFast: 'Быстрая', cutPrecise: 'Точная', newFile: 'Новый файл', overwrite: 'Перезапись', overwriteHint: 'Исходный файл будет заменён.', overwriteAction: 'Перезаписать', saveAction: 'Сохранить' },

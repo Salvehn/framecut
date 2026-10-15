@@ -8,6 +8,7 @@
 | `src/media.cjs` | FFmpeg/FFprobe processes, metadata, preview conversion, staged exports |
 | `src/media-protocol.cjs` | Random-token media access and byte-range streaming; reader release before overwrite |
 | `src/update-core.cjs`, `src/updater.cjs` | Ed25519 manifest verification, bounded download, SHA-256 validation, updater lifecycle |
+| `src/sharing.cjs` | Temporary MP4 export, bounded cache cleanup, native file clipboard, Telegram handoff and Discord launch |
 | `src/windows-integration.cjs` | Per-user capabilities, Open With registration and context-menu settings |
 | `scripts/prepare-installer.cjs` | Generates NSIS registration and removal hooks |
 

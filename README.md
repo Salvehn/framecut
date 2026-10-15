@@ -39,9 +39,10 @@
 - **Fast by default.** Keep the original streams or switch to precise re-encoding.
 - **Two ways to save.** Create a new file or safely replace the source after the result is verified.
 - **Windows integration.** Open videos from Explorer and choose Framecut as the default player in Settings.
+- **Share clips.** Temporary MP4 without a Save dialog: Telegram recipient picker, Discord clipboard handoff, and native file dragging.
 - **Signed updates.** Download verified releases and update the installed app with a restart.
 - **A quiet interface.** Four languages, window-size presets, compact controls, custom scrollbars, and gentle motion.
-- **Local by design.** Videos stay on your computer. No account or cloud processing.
+- **Local processing.** No account or cloud processing. Share only when you choose.
 
 ## Trim a video
 

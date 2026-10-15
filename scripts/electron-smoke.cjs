@@ -87,6 +87,18 @@ module.exports = async ({ window, openMedia, tools }) => {
     const result = await require('../src/media.cjs').exportClip({ input: path.join(directory, 'sample.mp4'), output: path.join(directory, 'export.mp4'),
       start: 1.25, end: 4.75, totalDuration: 8, mode: 'precise', tools });
     assert.ok(Math.abs(result.duration - 3.5) < 0.08); assert.equal(result.hasAudio, true);
+    const sourceBeforeShare = await fs.readFile(path.join(directory, 'sample.mp4'));
+    await evaluate('(async () => { state.mode = "precise"; await shareSelection(); })()');
+    assert.equal(await evaluate('document.getElementById("share-dialog").open'), true);
+    const shared = await evaluate('state.share');
+    assert.ok(shared.size > 1000); assert.ok(Math.abs(shared.duration - 3.5) < 0.08);
+    assert.equal((await fs.readFile(path.join(directory, 'sample.mp4'))).equals(sourceBeforeShare), true);
+    await new Promise(resolve => setTimeout(resolve, 220));
+    await fs.writeFile(path.join(directory, 'share-dialog.png'), (await window.webContents.capturePage()).toPNG());
+    await evaluate('(async () => { document.getElementById("share-dialog").close(); await shareSelection(); })()');
+    assert.equal(await evaluate('state.share.id'), shared.id);
+    await evaluate('document.getElementById("share-dialog").close(); state.mode = "copy"');
+    console.log('PASS sharing selected clip without Save dialog, source preservation and prepared-clip reuse');
     await fs.writeFile(path.join(directory, 'loaded.png'), (await window.webContents.capturePage()).toPNG());
     for (const language of ['ru', 'en', 'de', 'es']) {
       window.setSize(960, 680);

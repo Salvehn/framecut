@@ -34,6 +34,9 @@
     <symbol id="i-window" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol>
     <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
     <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.7 2.4-2 .9-2.3-.6-1.5 2.6L4.3 10v2L2.5 14l1.5 2.6 2.4-.5 1.8 1L9 20h3l.8-2.9 1.8-1 2.4.5 1.5-2.6-1.8-2v-2l1.8-1.7L17 5.7l-2.3.6-2-.9L12 3z"/><circle cx="10.5" cy="11.5" r="3"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3m-4 4 4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></symbol>
+    <symbol id="i-telegram" viewBox="0 0 24 24"><path d="m21 3-4 18-6-5-4 3 1-6L3 10zM8 13 21 3M11 16l4-6"/></symbol>
+    <symbol id="i-discord" viewBox="0 0 24 24"><path d="m7 5-3 1-2 12 5 2 1-3m9-12 3 1 2 12-5 2-1-3M8 5h8M6 16c4 3 8 3 12 0"/><circle cx="8.5" cy="12" r="1"/><circle cx="15.5" cy="12" r="1"/></symbol>
   </svg>
 
   <header class="titlebar">
@@ -121,6 +124,7 @@
           </fieldset>
           <div class="save-controls"><fieldset id="mode-fields"><legend class="sr-only" data-i18n="cutMode"></legend><select id="cut-mode" data-title="fastHint" data-label="cutMode"><option value="copy" data-i18n="cutFast" selected></option><option value="precise" data-i18n="cutPrecise"></option></select></fieldset>
             <div class="save-cluster"><div class="save-menu-wrap disabled" id="save-menu-wrap"><button class="button primary" id="export" data-title="overwriteHint" aria-haspopup="menu" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveAction"></span></button><div class="save-hover-menu" role="menu"><button id="save-original" role="menuitem" data-title="overwriteHint"><span data-i18n="saveAction"></span><kbd>Ctrl S</kbd></button><button id="save-as" role="menuitem"><span data-i18n="saveAs"></span><kbd>Ctrl ⇧ S</kbd></button></div></div></div>
+            <button class="button secondary share-button" id="share" data-title="share" disabled><svg><use href="#i-share"/></svg></button>
           </div>
         </div>
         <div class="timeline-footer"><span><span class="selection-dot"></span><span data-i18n="dragHandles"></span></span><span id="selection-times">00:00:00.000 — 00:00:00.000</span></div>
@@ -132,6 +136,11 @@
   <div class="drop-overlay" id="drop-overlay" hidden><div><svg><use href="#i-folder"/></svg><h2 data-i18n="dropTitle"></h2><p data-i18n="dropSubtitle"></p></div></div>
   <dialog id="export-dialog" aria-labelledby="export-title"><div class="modal-icon"><svg><use href="#i-scissors"/></svg></div><h2 id="export-title" data-i18n="exporting"></h2><p id="export-subtitle" data-i18n="exportHint"></p><div class="export-progress-wrap" id="export-progress-wrap"><progress id="export-progress" max="1" value="0"></progress><span id="export-percent">0%</span></div><div class="modal-actions"><button class="button secondary" id="cancel-export" data-i18n="cancel"></button><button class="button secondary" id="done-export" data-i18n="done" hidden></button><button class="button primary" id="reveal-export" data-i18n="reveal" hidden></button></div></dialog>
   <dialog id="shortcuts-dialog"><h2 data-i18n="shortcuts"></h2><p data-i18n="keysHelp"></p><button class="button secondary" id="close-shortcuts" data-i18n="done"></button></dialog>
+  <dialog id="share-dialog" aria-labelledby="share-title"><header class="settings-heading"><h2 id="share-title" data-i18n="share"></h2><button class="icon-button" id="close-share" data-title="close"><svg><use href="#i-close"/></svg></button></header>
+    <div class="share-file" id="share-file" draggable="true" tabindex="0" role="button" data-label="dragShare"><svg><use href="#i-film"/></svg><div><strong>Framecut.mp4</strong><span id="share-file-info"></span></div><svg><use href="#i-share"/></svg></div>
+    <div class="share-targets"><button class="share-target" id="share-telegram"><svg><use href="#i-telegram"/></svg>Telegram</button><button class="share-target" id="share-discord"><svg><use href="#i-discord"/></svg>Discord</button></div>
+    <button class="button secondary share-copy" id="share-copy" data-i18n="copyFile"></button><p class="share-hint" id="share-hint" data-i18n="dragShare"></p>
+  </dialog>
   <dialog id="settings-dialog" aria-labelledby="settings-title"><header class="settings-heading"><h2 id="settings-title" data-i18n="settings"></h2><button class="icon-button" id="close-settings" data-title="close"><svg><use href="#i-close"/></svg></button></header>
     <div class="settings-row"><label for="language" data-i18n="language"></label><select id="language"><option value="en">English</option><option value="ru">Русский</option><option value="de">Deutsch</option><option value="es">Español</option></select></div>
     <div class="settings-row window-preset-row"><label for="window-preset" data-i18n="windowSize"></label><select id="window-preset"><option value="compact" data-i18n="windowCompact"></option><option value="standard" data-i18n="windowStandard" selected></option><option value="large" data-i18n="windowLarge"></option><option value="maximized" data-i18n="windowMaximized"></option></select></div>

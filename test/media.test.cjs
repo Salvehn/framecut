@@ -6,6 +6,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createHash } = require('node:crypto');
 const media = require('../src/media.cjs');
+const sharing = require('../src/sharing.cjs');
 const tools = media.toolPaths();
 let directory, source, sourceHash;
 
@@ -32,6 +33,15 @@ test('precise cut exports the selected duration and audio', async () => {
   assert.ok(Math.abs(result.duration - 2.5) < 0.08, `duration ${result.duration}`);
   assert.equal(result.hasAudio, true); assert.equal(result.codec, 'h264');
   assert.equal(progress.at(-1), 1); assert.ok(result.size > 1000);
+  assert.equal(createHash('sha256').update(await fs.readFile(source)).digest('hex'), sourceHash);
+});
+
+test('sharing prepares a temporary MP4 with audio and preserves the source', async () => {
+  const clip = await sharing.prepareShare({ directory: path.join(directory, 'share-cache'), input: source,
+    info: await media.probe(source, tools), start: 1.25, end: 3.75, mode: 'precise', tools, exportClip: media.exportClip });
+  const result = await media.probe(clip.path, tools);
+  assert.equal(path.extname(clip.path), '.mp4'); assert.equal(result.codec, 'h264'); assert.equal(result.audioCodec, 'aac');
+  assert.ok(Math.abs(result.duration - 2.5) < 0.08); assert.ok(clip.size > 1000);
   assert.equal(createHash('sha256').update(await fs.readFile(source)).digest('hex'), sourceHash);
 });
 test('fast cut retains video and audio codecs', async () => {

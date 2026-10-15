@@ -7,6 +7,7 @@ const media = require('./media.cjs');
 const { serveMedia, closeMediaStreams } = require('./media-protocol.cjs');
 const { Updater } = require('./updater.cjs');
 const integration = require('./windows-integration.cjs');
+const sharing = require('./sharing.cjs');
 const { PRESETS, fitWindow } = require('./window-presets.cjs');
 const { dictionaries, normalizeLanguage, translate } = require('./shared/i18n.js');
 
@@ -32,6 +33,8 @@ let lastExport;
 let updater;
 let releaseSource;
 let closing = false;
+let shareDirectory;
+const shares = new Map();
 const mediaFiles = new Map();
 const t = (key, values) => translate(preferences?.language || 'en', key, values);
 const emit = (type, data = {}) => { if (window && !window.isDestroyed()) window.webContents.send('app-event', { type, ...data }); };
@@ -249,6 +252,31 @@ function registerIpc() {
     return openMedia(filePath);
   });
   handle('prepare-preview', preparePreview);
+  handle('prepare-share', async options => {
+    if (exporting || opening || updater?.state.status === 'installing') throw Object.assign(new Error('Busy'), { code: 'BUSY' });
+    if (!current || options?.id !== current.id) throw new Error('Unknown media');
+    media.validateRange(options.start, options.end, current.info.duration);
+    if (!['copy', 'precise'].includes(options.mode)) throw new Error('Invalid share mode');
+    const selected = current;
+    const controller = new AbortController(); exporting = controller; emit('export-start');
+    try {
+      const clip = await sharing.prepareShare({ directory: shareDirectory, input: selected.path, info: selected.info,
+        start: options.start, end: options.end, mode: options.mode, tools, signal: controller.signal,
+        onProgress: progress => emit('export-progress', { progress }), exportClip: media.exportClip });
+      shares.set(clip.id, clip);
+      return { id: clip.id, name: clip.name, size: clip.size, duration: clip.duration };
+    } finally { exporting = null; emit('export-finished'); }
+  });
+  handle('share-target', async (id, target) => {
+    const clip = shares.get(id);
+    if (!clip) throw new Error('Unknown shared clip');
+    return sharing.openTarget(target, clip.path, shell);
+  });
+  ipcMain.on('share-drag', (event, id) => {
+    if (event.sender !== window?.webContents || event.senderFrame !== window.webContents.mainFrame) return;
+    const clip = shares.get(id);
+    if (clip && require('node:fs').existsSync(clip.path)) event.sender.startDrag({ file: clip.path, icon: path.join(__dirname, '..', 'assets', 'icon.png') });
+  });
   handle('export-clip', chooseAndExport);
   handle('cancel-export', () => { exporting?.abort(); });
   handle('cancel-open', () => { opening?.abort(); });
@@ -308,6 +336,8 @@ app.whenReady().then(async () => {
   tools = media.toolPaths(app.isPackaged, process.resourcesPath);
   cacheDirectory = path.join(app.getPath('temp'), `framecut-${process.pid}-${randomUUID()}`);
   await fs.mkdir(cacheDirectory, { recursive: true });
+  shareDirectory = path.join(app.getPath('userData'), 'share-cache');
+  await sharing.cleanShares(shareDirectory);
   updater = new Updater(emit, () => !opening && !exporting, () => { closing = true; });
   protocol.handle('framecut-media', request => serveMedia(request, mediaFiles));
   registerIpc();

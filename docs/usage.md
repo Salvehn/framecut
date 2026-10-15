@@ -34,6 +34,16 @@ Hover **Save** to reveal **Save** and **Save as…**. **Save as…** opens the s
 
 Focus a range handle with Tab; use Left/Right to move by a frame, Shift for one second, and Home/End for the video edge. Physical key codes keep letter shortcuts usable with the Russian keyboard layout.
 
+## Share without saving manually
+
+Click the share icon beside **Save**. Framecut prepares the selected range as a temporary MP4 and opens the sharing dialog, without a Save dialog or changes to the source. Compatible H.264/AAC clips use the selected fast mode; other formats are converted to H.264/AAC for messenger compatibility. Reopening the same selection reuses its prepared clip.
+
+- **Telegram:** hands the file to Telegram Desktop's recipient picker using its [documented file argument](https://github.com/telegramdesktop/tdesktop/wiki/Command-Line-Switches). If no compatible desktop installation is found, the file is copied for pasting instead.
+- **Discord:** copies the actual file to the Windows clipboard and opens Discord. Choose a chat and paste with Ctrl+V, or drag the file tile into the chat. This does not expose Discord's mobile Share To picker. The documented [Share Moment API](https://docs.discord.com/developers/activities/development-guides/user-actions#open-share-moment-dialog) is for authenticated Discord Activities and Discord CDN URLs.
+- **Copy file:** puts a native file drop on the clipboard, for pasting into another app. The file tile also supports native dragging.
+
+Final recipient selection and sending happen in the destination app. Framecut does not send messages itself. Temporary clips remain in `%APPDATA%/Framecut/share-cache` after exit so handoffs keep working; clips older than 24 hours are removed on the next launch. Messenger upload limits still apply.
+
 ## Settings and Windows
 
 Settings contains language selection, window-size presets, the Explorer context-menu toggle, and the default-player button. Choose Compact (960×680), Standard (1180×790), Large (1440×900), or Maximized; the choice applies immediately and is remembered for startup. Sizes fit the display work area. Windows integration is enabled for the installed edition; development and portable editions do not register themselves. The default-player button opens Windows Settings, where the user chooses file associations. Framecut does not rewrite protected `UserChoice` values. On Windows 10, the settings link can open the general Default apps page; search for Framecut there.
@@ -46,6 +56,6 @@ Click the version at the bottom of the sidebar to open the update panel. It show
 
 The installed edition checks GitHub Releases 15 seconds after launch and every six hours. Download starts only on request. The manifest is verified with Ed25519; installer size and SHA-256 are checked after download and again before execution. Updates wait for preview/export operations to finish. Portable opens the release page for manual replacement.
 
-Videos are never uploaded. Only update checks and downloads contact GitHub. Preferences, recent paths, volume, and mode choices are stored in `%APPDATA%/Framecut/preferences.json`. The Windows installer is not Authenticode-signed; update authenticity uses the bundled Ed25519 public key.
+Framecut does not upload videos itself; sharing hands a local file to the chosen application. Only update checks and downloads contact GitHub. Preferences, recent paths, volume, and mode choices are stored in `%APPDATA%/Framecut/preferences.json`. The Windows installer is not Authenticode-signed; update authenticity uses the bundled Ed25519 public key.
 
 Motion follows the Windows reduced-motion preference. Transitions are short and do not delay dragging timeline handles.
