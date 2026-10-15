@@ -1,0 +1,48 @@
+name: Windows build
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm exec install-electron
+      - run: pnpm build
+      - name: Sign update manifest
+        if: startsWith(github.ref, 'refs/tags/')
+        run: node scripts/sign-update.cjs
+        env:
+          FRAMECUT_UPDATE_PRIVATE_KEY: ${{ secrets.FRAMECUT_UPDATE_PRIVATE_KEY }}
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          gh release create $env:RELEASE_TAG dist/*.exe dist/*.blockmap dist/framecut-update.json --verify-tag --title "Framecut $env:RELEASE_TAG" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Framecut-Windows-x64
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/framecut-update.json
+          retention-days: 14

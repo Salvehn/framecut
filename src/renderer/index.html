@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src framecut-media: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Framecut</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="empty">
+  <svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5 19 12 8 18.5Z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v10H3z"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="m8 8 12 12M8 16 20 4"/></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7 3v18M17 3v18M3 8h4m-4 8h4M17 8h4m-4 8h4"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5zM16 8a6 6 0 0 1 0 8M19 4a11 11 0 0 1 0 16"/></symbol>
+    <symbol id="i-muted" viewBox="0 0 24 24"><path d="m11 4-6 5H2v6h3l6 5zM17 9l5 6m0-6-5 6"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/><path d="M14 8h-4v4h3a2 2 0 1 1-3 3"/></symbol>
+    <symbol id="i-forward" viewBox="0 0 24 24"><path d="M20 10a8 8 0 1 0-1 8M20 4v6h-6"/><path d="M14 8h-4v4h3a2 2 0 1 1-3 3"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L20 5"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 1 8M4 4v6h6"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V6a4 4 0 0 1 8 0v4m-4 5v2"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></symbol>
+    <symbol id="i-mark-in" viewBox="0 0 24 24"><path d="M15 4H7v16h8m-3-8h8m-3-3 3 3-3 3"/></symbol>
+    <symbol id="i-mark-out" viewBox="0 0 24 24"><path d="M9 4h8v16H9m3-8H4m3-3-3 3 3 3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 15v5h16v-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+    <symbol id="i-window" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  </svg>
+
+  <header class="titlebar">
+    <div class="brand"><span class="brand-mark"><i></i><i></i></span><span>framecut<span class="brand-dot">.</span></span></div>
+    <span class="titlebar-caption" data-i18n="appTag"></span>
+    <div class="window-buttons">
+      <button class="window-button" id="minimize" data-title="minimize"><svg><use href="#i-minus"/></svg></button>
+      <button class="window-button" id="maximize" data-title="maximize"><svg><use href="#i-window"/></svg></button>
+      <button class="window-button close-window" id="close-window" data-title="close"><svg><use href="#i-close"/></svg></button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <p class="eyebrow" data-i18n="workspace"></p>
+        <div class="nav-item active"><svg><use href="#i-play"/></svg><span data-i18n="player"></span><span class="nav-dot"></span></div>
+      </div>
+      <div class="recent-section">
+        <div class="section-label"><span data-i18n="recent"></span><svg><use href="#i-clock"/></svg></div>
+        <div id="recent-files"></div>
+        <p class="no-recent" id="no-recent" data-i18n="noRecent"></p>
+      </div>
+      <div class="sidebar-bottom">
+        <label class="language-label" for="language"><svg><use href="#i-globe"/></svg><span data-i18n="language"></span></label>
+        <select id="language"><option value="en">English</option><option value="ru">Русский</option><option value="de">Deutsch</option><option value="es">Español</option></select>
+        <div class="privacy-note"><svg><use href="#i-lock"/></svg><span data-i18n="localOnly"></span></div>
+        <div class="update-control"><button class="update-button" id="update-button"><svg><use href="#i-reset"/></svg><span id="update-button-text" data-i18n="checkUpdates"></span></button><button class="icon-button" id="cancel-update" data-title="cancelUpdate" hidden><svg><use href="#i-close"/></svg></button></div>
+        <progress id="update-progress" max="1" value="0" hidden></progress><p class="update-description" id="update-description"></p>
+        <span class="app-version">FRAMECUT <span id="version">1.0.0</span></span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="workspace-header">
+        <div class="heading"><div class="breadcrumb"><span data-i18n="workspace"></span><span>/</span><span data-i18n="player"></span></div><h1 id="file-heading" data-i18n="session"></h1></div>
+        <button class="button secondary" id="open-top"><svg><use href="#i-plus"/></svg><span data-i18n="openVideo"></span><kbd>Ctrl O</kbd></button>
+      </header>
+
+      <div class="workspace-grid">
+        <section class="player-shell" id="player-shell">
+          <div class="stage" id="stage">
+            <video id="video" preload="metadata" playsinline></video>
+            <div class="empty-state" id="empty-state">
+              <div class="empty-visual" aria-hidden="true">
+                <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+                <div class="film-card film-back"><div class="film-hole"></div><div class="film-hole"></div><div class="film-hole"></div></div>
+                <div class="film-card film-front"><div class="art-sun"></div><div class="art-mountain mountain-back"></div><div class="art-mountain mountain-front"></div><span class="art-play"><svg><use href="#i-play"/></svg></span></div>
+                <span class="scissor-bubble"><svg><use href="#i-scissors"/></svg></span>
+                <span class="spark spark-one">+</span><span class="spark spark-two">+</span>
+              </div>
+              <p class="ready-pill"><span></span><span data-i18n="ready"></span></p>
+              <h2 data-i18n="emptyTitle"></h2>
+              <p class="empty-description" data-i18n="emptySubtitle"></p>
+              <button class="button primary" id="open-center"><svg><use href="#i-folder"/></svg><span data-i18n="openVideo"></span><svg class="button-arrow"><use href="#i-arrow"/></svg></button>
+              <span class="drop-hint" data-i18n="dropHint"></span>
+              <span class="formats" data-i18n="formatHint"></span>
+            </div>
+            <div class="video-badge" id="video-badge" hidden><span></span><span id="video-resolution"></span></div>
+            <div class="stage-message" id="stage-message" hidden><div class="spinner"></div><strong id="stage-message-title"></strong><p id="stage-message-hint"></p><progress id="preview-progress" max="1" value="0" hidden></progress><button class="button secondary small" id="cancel-open" data-i18n="cancel"></button></div>
+          </div>
+          <div class="transport">
+            <div class="seek-row"><span id="current-time">00:00:00</span><input type="range" id="seek" min="0" max="1" step="0.001" value="0" disabled aria-label="Seek"><span id="total-time">00:00:00</span></div>
+            <div class="transport-row">
+              <div class="playback-buttons"><button class="icon-button" id="back" data-title="back" disabled><svg><use href="#i-back"/></svg></button><button class="play-button" id="play" data-title="play" disabled><svg><use href="#i-play"/></svg></button><button class="icon-button" id="forward" data-title="forward" disabled><svg><use href="#i-forward"/></svg></button></div>
+              <div class="volume-control"><button class="icon-button" id="mute" data-title="mute"><svg><use href="#i-volume"/></svg></button><input type="range" id="volume" min="0" max="1" step="0.01" value="0.8" data-label="volume"></div>
+              <select id="speed" data-label="speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option><option value="3">3×</option></select>
+              <button class="icon-button" id="fullscreen" data-title="fullscreen" disabled><svg><use href="#i-expand"/></svg></button>
+            </div>
+          </div>
+        </section>
+
+        <aside class="trim-panel">
+          <header class="trim-heading"><span class="trim-icon"><svg><use href="#i-scissors"/></svg></span><div><h2 data-i18n="trimVideo"></h2><p data-i18n="trimSubtitle"></p></div></header>
+          <fieldset id="trim-fields" disabled>
+            <legend class="eyebrow" data-i18n="selection"></legend>
+            <div class="time-field"><label for="in-time" data-i18n="start"></label><div class="time-input-wrap"><input id="in-time" value="00:00:00.000" spellcheck="false" autocomplete="off" inputmode="decimal" data-title="milliseconds"><button class="icon-button mark-button" id="mark-in" data-title="setStart"><svg><use href="#i-mark-in"/></svg></button></div></div>
+            <div class="time-field"><label for="out-time" data-i18n="end"></label><div class="time-input-wrap"><input id="out-time" value="00:00:00.000" spellcheck="false" autocomplete="off" inputmode="decimal" data-title="milliseconds"><button class="icon-button mark-button" id="mark-out" data-title="setEnd"><svg><use href="#i-mark-out"/></svg></button></div></div>
+            <div class="duration-row"><span data-i18n="selectedDuration"></span><strong id="clip-duration">00:00:00.000</strong></div>
+          </fieldset>
+          <fieldset id="mode-fields"><legend class="eyebrow" data-i18n="exportMode"></legend>
+            <label class="mode-option"><input type="radio" name="mode" value="precise" checked><span class="radio-dot"></span><span><strong data-i18n="precise"></strong><small data-i18n="preciseHint"></small></span></label>
+            <label class="mode-option"><input type="radio" name="mode" value="copy"><span class="radio-dot"></span><span><strong data-i18n="fast"></strong><small data-i18n="fastHint"></small></span></label>
+            <p class="fast-note" id="fast-note" data-i18n="fastNote" hidden></p>
+          </fieldset>
+          <div class="export-area"><button class="button primary export-button" id="export" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveClip"></span></button><p><svg><use href="#i-lock"/></svg><span data-i18n="safeExport"></span></p></div>
+        </aside>
+      </div>
+
+      <section class="timeline-panel">
+        <div class="timeline-heading"><div><svg><use href="#i-film"/></svg><h2 data-i18n="timeline"></h2><span class="timeline-tag" id="timeline-tag">00:00:00.000</span></div><div class="timeline-actions"><button class="text-button" id="reset" disabled><svg><use href="#i-reset"/></svg><span data-i18n="reset"></span></button><button class="button secondary small" id="preview" disabled><svg><use href="#i-play"/></svg><span data-i18n="preview"></span></button></div></div>
+        <div class="timeline-ruler" id="ruler" aria-hidden="true"><span>00:00</span><span>00:00</span><span>00:00</span><span>00:00</span><span>00:00</span><span>00:00</span></div>
+        <div class="timeline-track disabled" id="timeline-track">
+          <div class="filmstrip" id="filmstrip" aria-hidden="true"></div><div class="timeline-dim dim-left" id="dim-left"></div><div class="timeline-dim dim-right" id="dim-right"></div>
+          <div class="range-outline" id="range-outline"></div>
+          <div class="playhead" id="playhead"><i></i></div>
+          <button class="range-handle handle-in" id="in-handle" role="slider" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-label="inPoint" disabled><i></i><i></i></button>
+          <button class="range-handle handle-out" id="out-handle" role="slider" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-label="outPoint" disabled><i></i><i></i></button>
+        </div>
+        <div class="timeline-footer"><span><span class="selection-dot"></span><span data-i18n="dragHandles"></span></span><span id="selection-times">00:00:00.000 — 00:00:00.000</span></div>
+      </section>
+      <footer class="statusbar"><span><span class="status-dot"></span><span id="status" data-i18n="footer"></span></span><button class="text-button shortcuts-button" id="shortcuts" data-title="shortcuts"><svg><use href="#i-keyboard"/></svg><span>?</span></button><span id="metadata"></span></footer>
+    </main>
+  </div>
+
+  <div class="drop-overlay" id="drop-overlay" hidden><div><svg><use href="#i-folder"/></svg><h2 data-i18n="dropTitle"></h2><p data-i18n="dropSubtitle"></p></div></div>
+  <dialog id="export-dialog" aria-labelledby="export-title"><div class="modal-icon"><svg><use href="#i-scissors"/></svg></div><h2 id="export-title" data-i18n="exporting"></h2><p id="export-subtitle" data-i18n="exportHint"></p><div class="export-progress-wrap" id="export-progress-wrap"><progress id="export-progress" max="1" value="0"></progress><span id="export-percent">0%</span></div><div class="modal-actions"><button class="button secondary" id="cancel-export" data-i18n="cancel"></button><button class="button secondary" id="done-export" data-i18n="done" hidden></button><button class="button primary" id="reveal-export" data-i18n="reveal" hidden></button></div></dialog>
+  <dialog id="shortcuts-dialog"><h2 data-i18n="shortcuts"></h2><p data-i18n="keysHelp"></p><button class="button secondary" id="close-shortcuts" data-i18n="done"></button></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden><svg><use href="#i-check"/></svg><span id="toast-text"></span><button class="icon-button" id="close-toast" data-title="close"><svg><use href="#i-close"/></svg></button></div>
+  <script src="../shared/i18n.js"></script><script src="../shared/time.js"></script><script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "name": "framecut",
+  "version": "1.0.0",
+  "description": "A simple Windows media player with precise video trimming",
+  "main": "src/main.cjs",
+  "author": "Salvehn",
+  "license": "GPL-3.0-or-later",
+  "repository": "https://github.com/Salvehn/framecut",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "test:smoke": "node scripts/smoke.cjs",
+    "build": "install-electron && electron-builder --win nsis portable --x64 --publish never",
+    "build:dir": "install-electron && electron-builder --win --x64 --dir --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.15.3"
+  },
+  "dependencies": {
+    "ffmpeg-static": "5.3.0",
+    "ffprobe-static": "3.1.0"
+  },
+  "build": {
+    "appId": "io.github.salvehn.framecut",
+    "productName": "Framecut",
+    "copyright": "Copyright © 2026 Salvehn",
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "directories": { "output": "dist" },
+    "files": ["src/**/*", "assets/**/*", "package.json", "LICENSE", "THIRD_PARTY_NOTICES.md", "!node_modules/ffmpeg-static/**/*", "!node_modules/ffprobe-static/**/*"],
+    "extraResources": [
+      { "from": "node_modules/ffmpeg-static/ffmpeg.exe", "to": "tools/ffmpeg.exe" },
+      { "from": "node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe", "to": "tools/ffprobe.exe" },
+      { "from": "node_modules/ffmpeg-static/LICENSE", "to": "licenses/ffmpeg-static-LICENSE" },
+      { "from": "node_modules/ffmpeg-static/ffmpeg.exe.LICENSE", "to": "licenses/FFmpeg-LICENSE.txt" },
+      { "from": "node_modules/ffmpeg-static/ffmpeg.exe.README", "to": "licenses/FFmpeg-BUILD.txt" },
+      { "from": "node_modules/ffprobe-static/LICENSE", "to": "licenses/ffprobe-static-LICENSE" },
+      { "from": "LICENSE", "to": "licenses/GPL-3.0.txt" },
+      { "from": "THIRD_PARTY_NOTICES.md", "to": "licenses/THIRD_PARTY_NOTICES.md" }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "signExecutable": false,
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "artifactName": "Framecut-${version}-${arch}-nsis.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerLanguages": ["en_US", "ru_RU", "de_DE", "es_ES"],
+      "displayLanguageSelector": true
+    },
+    "portable": { "requestExecutionLevel": "user", "artifactName": "Framecut-${version}-${arch}-portable.${ext}" }
+  }
+}
