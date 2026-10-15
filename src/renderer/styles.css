@@ -55,7 +55,8 @@ dialog{opacity:0;transform:translateY(5px);transition:opacity 180ms ease,transfo
 .sidebar-bottom{padding:10px 0 0}
 .settings-button{padding:8px 10px;border:1px solid transparent;border-radius:7px;min-height:34px;line-height:16px}
 .settings-button>span{display:block;transform:translateY(-1px)}
-.supported-formats{max-width:460px;margin-top:16px;color:#707c94;font-size:9px;line-height:1.8;letter-spacing:.15px;text-wrap:balance}
+.supported-formats{max-width:250px;margin-top:14px;color:#707c94;font-size:9px;line-height:1.8;letter-spacing:.15px;text-wrap:balance}
+.supported-formats>span{display:block}
 .settings-button:hover{background:#22252e;border-color:#343a49}
 
 /* WireGuard Desktop's version button and update popover, in Framecut's palette. */

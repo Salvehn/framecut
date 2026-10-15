@@ -37,7 +37,7 @@ module.exports = async ({ window, openMedia, tools }) => {
         aligned: Math.abs(version.left - settings.left) < 1 && Math.abs(heading.left + 10 - version.left) <= 1 };
     })()`);
     assert.equal(emptyLayout.fillsStage, true); assert.equal(emptyLayout.aligned, true);
-    assert.deepEqual(await evaluate('document.getElementById("supported-formats").textContent.toLowerCase().split(" · ")'), require('../src/windows-integration.cjs').EXTENSIONS);
+    assert.deepEqual(await evaluate('Array.from(document.querySelectorAll("#supported-formats span"), row => row.textContent.toLowerCase().split(" · ")).flat()'), require('../src/windows-integration.cjs').EXTENSIONS);
     await evaluate('document.getElementById("version-button").click()');
     assert.equal(await evaluate('document.getElementById("update-panel").hidden'), false);
     await evaluate(`renderUpdate({ status: 'downloading', version: '1.1.0', progress: .42, transferred: 42 * 1024 ** 2, total: 100 * 1024 ** 2, bytesPerSecond: 2 * 1024 ** 2 })`);

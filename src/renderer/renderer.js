@@ -603,7 +603,11 @@ api.onEvent(message => {
     const data = unwrap(await api.bootstrap());
     state.recent = data.recent; state.mode = data.mode;
     state.version = data.version;
-    $('supported-formats').textContent = data.videoExtensions.map(extension => extension === 'webm' ? 'WebM' : extension.toUpperCase()).join(' · ');
+    const formats = data.videoExtensions.map(extension => extension === 'webm' ? 'WebM' : extension.toUpperCase());
+    const middle = Math.floor(formats.length / 2);
+    $('supported-formats').replaceChildren(...[formats.slice(0, middle), formats.slice(middle)].map(items => {
+      const row = document.createElement('span'); row.textContent = items.join(' · '); return row;
+    }));
     $('volume').value = data.volume; video.volume = data.volume;
     $('cut-mode').value = state.mode;
     $('window-preset').value = data.windowPreset || 'standard';
