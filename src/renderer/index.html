@@ -33,6 +33,7 @@
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
     <symbol id="i-window" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol>
     <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="m9 3-.7 2.4-2 .9-2.3-.6-1.5 2.6L4.3 10v2L2.5 14l1.5 2.6 2.4-.5 1.8 1L9 20h3l.8-2.9 1.8-1 2.4.5 1.5-2.6-1.8-2v-2l1.8-1.7L17 5.7l-2.3.6-2-.9L12 3z"/><circle cx="10.5" cy="11.5" r="3"/></symbol>
   </svg>
 
   <header class="titlebar">
@@ -52,8 +53,7 @@
         <p class="no-recent" id="no-recent" data-i18n="noRecent"></p>
       </div>
       <div class="sidebar-bottom">
-        <label class="language-label" for="language"><svg><use href="#i-globe"/></svg><span data-i18n="language"></span></label>
-        <select id="language"><option value="en">English</option><option value="ru">Русский</option><option value="de">Deutsch</option><option value="es">Español</option></select>
+        <button class="settings-button" id="settings"><svg><use href="#i-settings"/></svg><span data-i18n="settings"></span></button>
         <div class="update-control"><button class="update-button" id="update-button"><svg><use href="#i-reset"/></svg><span id="update-button-text" data-i18n="checkUpdates"></span></button><button class="icon-button" id="cancel-update" data-title="cancelUpdate" hidden><svg><use href="#i-close"/></svg></button></div>
         <progress id="update-progress" max="1" value="0" hidden></progress><p class="update-description" id="update-description"></p>
         <span class="app-version">FRAMECUT <span id="version">1.0.0</span></span>
@@ -126,6 +126,11 @@
   <div class="drop-overlay" id="drop-overlay" hidden><div><svg><use href="#i-folder"/></svg><h2 data-i18n="dropTitle"></h2><p data-i18n="dropSubtitle"></p></div></div>
   <dialog id="export-dialog" aria-labelledby="export-title"><div class="modal-icon"><svg><use href="#i-scissors"/></svg></div><h2 id="export-title" data-i18n="exporting"></h2><p id="export-subtitle" data-i18n="exportHint"></p><div class="export-progress-wrap" id="export-progress-wrap"><progress id="export-progress" max="1" value="0"></progress><span id="export-percent">0%</span></div><div class="modal-actions"><button class="button secondary" id="cancel-export" data-i18n="cancel"></button><button class="button secondary" id="done-export" data-i18n="done" hidden></button><button class="button primary" id="reveal-export" data-i18n="reveal" hidden></button></div></dialog>
   <dialog id="shortcuts-dialog"><h2 data-i18n="shortcuts"></h2><p data-i18n="keysHelp"></p><button class="button secondary" id="close-shortcuts" data-i18n="done"></button></dialog>
+  <dialog id="settings-dialog" aria-labelledby="settings-title"><header class="settings-heading"><h2 id="settings-title" data-i18n="settings"></h2><button class="icon-button" id="close-settings" data-title="close"><svg><use href="#i-close"/></svg></button></header>
+    <div class="settings-row"><label for="language" data-i18n="language"></label><select id="language"><option value="en">English</option><option value="ru">Русский</option><option value="de">Deutsch</option><option value="es">Español</option></select></div>
+    <div class="settings-row window-preset-row"><label for="window-preset" data-i18n="windowSize"></label><select id="window-preset"><option value="compact" data-i18n="windowCompact"></option><option value="standard" data-i18n="windowStandard" selected></option><option value="large" data-i18n="windowLarge"></option><option value="maximized" data-i18n="windowMaximized"></option></select></div>
+    <div class="settings-section"><h3 data-i18n="windowsIntegration"></h3><div class="settings-row"><label for="context-menu" data-i18n="contextMenu"></label><input type="checkbox" role="switch" id="context-menu" disabled></div><button class="button secondary default-player-button" id="default-player" data-i18n="defaultPlayerAction" disabled></button><p class="integration-note" id="integration-note" data-i18n="installedRequired" hidden></p></div>
+  </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite" hidden><svg><use href="#i-check"/></svg><span id="toast-text"></span><button class="icon-button" id="close-toast" data-title="close"><svg><use href="#i-close"/></svg></button></div>
   <script src="../shared/i18n.js"></script><script src="../shared/time.js"></script><script src="renderer.js"></script>
 </body>

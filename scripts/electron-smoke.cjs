@@ -76,6 +76,18 @@ module.exports = async ({ window, openMedia, tools }) => {
     }
     window.setSize(1180, 790); await evaluate("applyLanguage('ru')");
     console.log('PASS compact editing toolbar fits all four languages at minimum window size');
+    await evaluate('document.getElementById("settings").click()');
+    await waitFor('document.getElementById("settings-dialog").open');
+    assert.equal(await evaluate('document.getElementById("default-player").disabled'), true);
+    await new Promise(resolve => setTimeout(resolve, 250));
+    await fs.writeFile(path.join(directory, 'settings.png'), (await window.webContents.capturePage()).toPNG());
+    await evaluate('document.getElementById("settings-dialog").close()');
+    console.log('PASS settings modal and Windows-integration controls');
+    await evaluate('framecut.setWindowPreset("compact")');
+    assert.equal(window.getSize()[0], 960); assert.equal(window.getSize()[1], 680);
+    assert.equal(await evaluate('(async () => (await framecut.bootstrap()).value.windowPreset)()'), 'compact');
+    await evaluate('framecut.setWindowPreset("standard")');
+    console.log('PASS window-size preset application and persistence');
     const initialId = await evaluate('state.media.id');
     await evaluate(`(async () => {
       state.mode = 'precise'; document.getElementById('cut-mode').value = 'precise';
@@ -86,13 +98,22 @@ module.exports = async ({ window, openMedia, tools }) => {
     const overwritten = await require('../src/media.cjs').probe(path.join(directory, 'sample.mp4'), tools);
     assert.ok(Math.abs(overwritten.duration - 3.5) < 0.08); assert.equal(overwritten.hasAudio, true);
     console.log('PASS overwrite via renderer IPC, reader release, atomic replacement and reloaded playback');
+    await evaluate('document.getElementById("export-dialog").close()');
+    const previousId = await evaluate('state.media.id');
+    const secondInstance = require('node:child_process').spawn(process.execPath, ['.', '--smoke-test', path.join(directory, 'sample.mp4')], {
+      cwd: path.join(__dirname, '..'), env: process.env, stdio: 'ignore', windowsHide: true
+    });
+    secondInstance.on('error', error => console.error(error));
+    await waitFor(`state.media.id !== ${JSON.stringify(previousId)} && video.readyState >= 2 && !state.busy`);
+    console.log('PASS opening a video from a second instance / Explorer command line');
     assert.deepEqual(errors, []);
     console.log('PASS playback, seek, thumbnails, selection, clip preview, precise export and audio');
     await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: true, languages: ['ru', 'en', 'de', 'es'], duration: result.duration, hasAudio: result.hasAudio, overwrite: true, customDropdown: true }, null, 2));
     app.quit();
   } catch (error) {
     console.error('SMOKE FAILED:', error);
-    await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: false, error: error.message }, null, 2));
+    const diagnostic = await evaluate('({time:video.currentTime,paused:video.paused,readyState:video.readyState,busy:state.busy,error:video.error?.message})').catch(() => null);
+    await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: false, error: error.message, diagnostic }, null, 2));
     app.exit(1);
   }
 };

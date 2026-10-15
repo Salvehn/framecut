@@ -1,11 +1,13 @@
 'use strict';
-const { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, protocol, shell, screen } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const media = require('./media.cjs');
 const { serveMedia, closeMediaStreams } = require('./media-protocol.cjs');
 const { Updater } = require('./updater.cjs');
+const integration = require('./windows-integration.cjs');
+const { PRESETS, fitWindow } = require('./window-presets.cjs');
 const { dictionaries, normalizeLanguage, translate } = require('./shared/i18n.js');
 
 protocol.registerSchemesAsPrivileged([{ scheme: 'framecut-media', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
@@ -13,6 +15,10 @@ app.setName('Framecut');
 app.setAppUserModelId('io.github.salvehn.framecut');
 const smoke = process.argv.includes('--smoke-test');
 if (smoke && !app.isPackaged) app.setPath('userData', path.resolve(process.env.FRAMECUT_TEST_DIR || path.join(__dirname, '..', 'test-artifacts', 'profile')));
+const ownsInstance = app.requestSingleInstanceLock();
+if (!ownsInstance) app.quit();
+let pendingVideo = integration.videoArgument(process.argv);
+let rendererReady = false;
 
 let window;
 let preferences;
@@ -34,17 +40,33 @@ const mediaUrl = filePath => {
   mediaFiles.set(id, filePath);
   return `framecut-media://local/${id}`;
 };
+const integrationAvailable = () => app.isPackaged && !process.env.PORTABLE_EXECUTABLE_FILE && !app.getPath('exe').toLowerCase().includes('win-unpacked');
+async function integrationState() {
+  const available = integrationAvailable();
+  return { available, contextMenu: available ? await integration.getContextMenuState() : false };
+}
+async function openPendingVideo() {
+  if (!rendererReady || !pendingVideo) return;
+  const filePath = pendingVideo; pendingVideo = null;
+  try { emit('external-media', { media: await openMedia(filePath) }); }
+  catch (error) { emit('external-error', { code: error.code || 'MEDIA_ERROR' }); }
+}
+app.on('second-instance', (_event, argumentsList) => {
+  if (window) { if (window.isMinimized()) window.restore(); window.show(); window.focus(); }
+  pendingVideo = integration.videoArgument(argumentsList); openPendingVideo();
+});
 
 async function loadPreferences() {
   preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
-  const defaults = { language: normalizeLanguage(app.getLocale()), recent: [], volume: 0.8, mode: 'copy', cutModeChosen: false, saveMode: 'new' };
+  const defaults = { language: normalizeLanguage(app.getLocale()), recent: [], volume: 0.8, mode: 'copy', cutModeChosen: false, saveMode: 'new', windowPreset: 'standard' };
   try {
     const saved = JSON.parse(await fs.readFile(preferencesPath, 'utf8'));
     return { ...defaults, language: normalizeLanguage(saved.language || defaults.language),
       recent: Array.isArray(saved.recent) ? saved.recent.filter(item => typeof item.id === 'string' && typeof item.path === 'string').slice(0, 12) : [],
       volume: typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : defaults.volume,
       mode: saved.cutModeChosen && ['precise', 'copy'].includes(saved.mode) ? saved.mode : defaults.mode,
-      cutModeChosen: Boolean(saved.cutModeChosen), saveMode: saved.saveMode === 'overwrite' ? 'overwrite' : 'new' };
+      cutModeChosen: Boolean(saved.cutModeChosen), saveMode: saved.saveMode === 'overwrite' ? 'overwrite' : 'new',
+      windowPreset: Object.hasOwn(PRESETS, saved.windowPreset) ? saved.windowPreset : 'standard' };
   } catch { return defaults; }
 }
 
@@ -179,8 +201,32 @@ function registerIpc() {
       return { ok: false, code: error.code || (error.code === 'ENOENT' ? 'MISSING_FILE' : 'MEDIA_ERROR') };
     }
   });
-  handle('bootstrap', () => ({ version: app.getVersion(), language: preferences.language, volume: preferences.volume, mode: preferences.mode, saveMode: preferences.saveMode, recent: recentPublic(), update: updater.state }));
+  handle('bootstrap', () => ({ version: app.getVersion(), language: preferences.language, volume: preferences.volume, mode: preferences.mode, saveMode: preferences.saveMode, windowPreset: preferences.windowPreset, recent: recentPublic(), update: updater.state }));
+  handle('window-preset', async preset => {
+    if (!Object.hasOwn(PRESETS, preset)) throw new Error('Unknown window preset');
+    preferences.windowPreset = preset; await savePreferences();
+    const area = screen.getDisplayMatching(window.getBounds()).workArea;
+    const fitted = fitWindow(preset, area);
+    if (window.isMaximized()) window.unmaximize();
+    window.setMinimumSize(fitted.minWidth, fitted.minHeight);
+    window.setBounds({ width: fitted.width, height: fitted.height,
+      x: area.x + Math.round((area.width - fitted.width) / 2), y: area.y + Math.round((area.height - fitted.height) / 2) });
+    if (fitted.maximized) window.maximize();
+    return preset;
+  });
   handle('release-source', () => { releaseSource?.(); });
+  handle('renderer-ready', () => { rendererReady = true; openPendingVideo(); });
+  handle('integration-state', integrationState);
+  handle('integration-context', async enabled => {
+    if (!integrationAvailable() || typeof enabled !== 'boolean') throw new Error('Integration requires the installed app');
+    await integration.setContextMenu(app.getPath('exe'), enabled, t('contextOpen'));
+    return integrationState();
+  });
+  handle('integration-default', async () => {
+    if (!integrationAvailable()) throw new Error('Integration requires the installed app');
+    await integration.registerApplication(app.getPath('exe'));
+    await shell.openExternal('ms-settings:defaultapps?registeredAppUser=Framecut');
+  });
   handle('update-check', () => updater.check());
   handle('update-download', () => updater.download());
   handle('update-cancel', () => updater.cancel());
@@ -228,18 +274,19 @@ function registerIpc() {
 }
 
 function createWindow() {
-  window = new BrowserWindow({ width: 1180, height: 790, minWidth: 960, minHeight: 680,
+  const fitted = fitWindow(preferences.windowPreset, screen.getPrimaryDisplay().workArea);
+  window = new BrowserWindow({ width: fitted.width, height: fitted.height, minWidth: fitted.minWidth, minHeight: fitted.minHeight,
     backgroundColor: '#101114', frame: false, show: false, title: 'Framecut',
     icon: path.join(__dirname, '..', 'assets', 'icon.ico'),
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true,
-      nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false }
+      nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, backgroundThrottling: !smoke }
   });
   Menu.setApplicationMenu(null);
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   window.webContents.session.setPermissionCheckHandler(() => false);
-  window.once('ready-to-show', () => window.show());
+  window.once('ready-to-show', () => { if (fitted.maximized) window.maximize(); smoke ? window.showInactive() : window.show(); });
   window.on('enter-full-screen', () => emit('fullscreen', { active: true }));
   window.on('leave-full-screen', () => emit('fullscreen', { active: false }));
   window.on('close', event => {
@@ -256,6 +303,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  if (!ownsInstance) return;
   preferences = await loadPreferences();
   tools = media.toolPaths(app.isPackaged, process.resourcesPath);
   cacheDirectory = path.join(app.getPath('temp'), `framecut-${process.pid}-${randomUUID()}`);

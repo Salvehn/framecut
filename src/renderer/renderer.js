@@ -71,6 +71,7 @@ function renderRecent() {
 
 function setBusy(busy, kind = 'loading') {
   state.busy = busy;
+  $('stage').classList.toggle('is-loading', busy);
   $('stage-message').hidden = !busy;
   $('stage-message-title').textContent = t(kind);
   $('stage-message-hint').textContent = kind === 'preparing' ? t('preparingHint') : '';
@@ -350,6 +351,33 @@ $('reveal-export').addEventListener('click', () => api.revealExport());
 $('export-dialog').addEventListener('cancel', event => { if (state.exporting) { event.preventDefault(); api.cancelExport(); } });
 $('shortcuts').addEventListener('click', () => $('shortcuts-dialog').showModal());
 $('close-shortcuts').addEventListener('click', () => $('shortcuts-dialog').close());
+$('settings').addEventListener('click', async () => {
+  $('settings-dialog').showModal();
+  try {
+    const info = unwrap(await api.integrationState());
+    $('context-menu').checked = info.contextMenu;
+    $('context-menu').disabled = !info.available;
+    $('default-player').disabled = !info.available;
+    $('integration-note').hidden = info.available;
+  } catch (error) { reportError(error); }
+});
+$('close-settings').addEventListener('click', () => $('settings-dialog').close());
+$('window-preset').addEventListener('change', async event => {
+  try { unwrap(await api.setWindowPreset(event.target.value)); }
+  catch (error) { reportError(error); }
+});
+$('context-menu').addEventListener('change', async event => {
+  const control = event.target; control.disabled = true;
+  try { const info = unwrap(await api.setContextMenu(control.checked)); control.checked = info.contextMenu; }
+  catch (error) { control.checked = !control.checked; reportError(error); }
+  finally { control.disabled = false; }
+});
+$('default-player').addEventListener('click', async () => {
+  $('default-player').disabled = true;
+  try { unwrap(await api.setDefaultPlayer()); toast('selectDefault'); }
+  catch (error) { reportError(error); }
+  finally { $('default-player').disabled = false; }
+});
 $('close-toast').addEventListener('click', () => { $('toast').hidden = true; });
 $('update-button').addEventListener('click', async () => {
   try {
@@ -371,6 +399,7 @@ for (const [id, boundary] of [['in-handle', 'start'], ['out-handle', 'end']]) {
   handle.addEventListener('pointerdown', event => {
     if (handle.disabled) return;
     event.stopPropagation(); dragging = true; video.pause(); state.previewing = false;
+    $('timeline-track').classList.add('dragging');
     handle.setPointerCapture(event.pointerId);
   });
   handle.addEventListener('pointermove', event => {
@@ -378,8 +407,8 @@ for (const [id, boundary] of [['in-handle', 'start'], ['out-handle', 'end']]) {
     const bounds = $('timeline-track').getBoundingClientRect();
     changeBoundary(boundary, (event.clientX - bounds.left) / bounds.width * state.media.duration, true);
   });
-  handle.addEventListener('pointerup', () => { dragging = false; });
-  handle.addEventListener('pointercancel', () => { dragging = false; });
+  handle.addEventListener('pointerup', () => { dragging = false; $('timeline-track').classList.remove('dragging'); });
+  handle.addEventListener('pointercancel', () => { dragging = false; $('timeline-track').classList.remove('dragging'); });
   handle.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
@@ -442,6 +471,8 @@ window.addEventListener('keydown', event => {
 });
 
 api.onEvent(message => {
+  if (message.type === 'external-media') { useMedia(message.media).catch(reportError).finally(() => setBusy(false)); }
+  if (message.type === 'external-error') { setBusy(false); reportError({ code: message.code }); }
   if (message.type === 'source-replacing') {
     state.replacing = true; state.thumbnailAbort?.abort(); video.pause(); video.removeAttribute('src'); video.load();
     api.releaseSource();
@@ -471,7 +502,8 @@ api.onEvent(message => {
     $('volume').value = data.volume; video.volume = data.volume;
     $('cut-mode').value = state.mode;
     $('save-mode').value = state.saveMode;
+    $('window-preset').value = data.windowPreset || 'standard';
     state.update = data.update || { status: 'idle' };
-    applyLanguage(data.language); updateEnabled(); state.initialized = true;
+    applyLanguage(data.language); updateEnabled(); state.initialized = true; api.ready();
   } catch (error) { reportError(error); }
 })();

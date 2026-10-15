@@ -180,6 +180,21 @@
     es: { cutMode: 'Corte', cutFast: 'Rápido', cutPrecise: 'Preciso', newFile: 'Nuevo archivo', overwrite: 'Sobrescribir', overwriteHint: 'Reemplaza el archivo original.', overwriteAction: 'Sobrescribir', saveAction: 'Guardar' }
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], editingStrings[language]);
+  const settingsStrings = {
+    en: { settings: 'Settings', windowsIntegration: 'Windows', contextMenu: 'Explorer context menu', defaultPlayer: 'Default video player', makeDefault: 'Set as default', installedRequired: 'Available in the installed version.', contextOpen: 'Open in Framecut', selectDefault: 'Choose Framecut in Windows Settings.' },
+    ru: { settings: 'Настройки', windowsIntegration: 'Windows', contextMenu: 'Контекстное меню', defaultPlayer: 'Плеер по умолчанию', makeDefault: 'Выбрать', installedRequired: 'Доступно в установленной версии.', contextOpen: 'Открыть в Framecut', selectDefault: 'Выберите Framecut в настройках Windows.' },
+    de: { settings: 'Einstellungen', windowsIntegration: 'Windows', contextMenu: 'Explorer-Kontextmenü', defaultPlayer: 'Standard-Videoplayer', makeDefault: 'Als Standard', installedRequired: 'In der installierten Version verfügbar.', contextOpen: 'In Framecut öffnen', selectDefault: 'Framecut in den Windows-Einstellungen auswählen.' },
+    es: { settings: 'Ajustes', windowsIntegration: 'Windows', contextMenu: 'Menú contextual', defaultPlayer: 'Reproductor predeterminado', makeDefault: 'Elegir', installedRequired: 'Disponible en la versión instalada.', contextOpen: 'Abrir en Framecut', selectDefault: 'Elige Framecut en la configuración de Windows.' }
+  };
+  for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], settingsStrings[language]);
+  for (const [language, label] of Object.entries({ en: 'Set as default video player', ru: 'Сделать плеером по умолчанию', de: 'Als Standard-Videoplayer festlegen', es: 'Usar como reproductor predeterminado' })) dictionaries[language].defaultPlayerAction = label;
+  const windowStrings = {
+    en: { windowSize: 'Window size', windowCompact: 'Compact · 960 × 680', windowStandard: 'Standard · 1180 × 790', windowLarge: 'Large · 1440 × 900', windowMaximized: 'Maximized' },
+    ru: { windowSize: 'Размер окна', windowCompact: 'Компактное · 960 × 680', windowStandard: 'Стандартное · 1180 × 790', windowLarge: 'Большое · 1440 × 900', windowMaximized: 'Развёрнутое' },
+    de: { windowSize: 'Fenstergröße', windowCompact: 'Kompakt · 960 × 680', windowStandard: 'Standard · 1180 × 790', windowLarge: 'Groß · 1440 × 900', windowMaximized: 'Maximiert' },
+    es: { windowSize: 'Tamaño', windowCompact: 'Compacto · 960 × 680', windowStandard: 'Estándar · 1180 × 790', windowLarge: 'Grande · 1440 × 900', windowMaximized: 'Maximizada' }
+  };
+  for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], windowStrings[language]);
   function normalizeLanguage(language) {
     const code = String(language || '').toLowerCase().split(/[-_]/)[0];
     return Object.hasOwn(dictionaries, code) ? code : 'en';

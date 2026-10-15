@@ -4,6 +4,11 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const invoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args);
 contextBridge.exposeInMainWorld('framecut', {
   bootstrap: () => invoke('bootstrap'),
+  ready: () => invoke('renderer-ready'),
+  integrationState: () => invoke('integration-state'),
+  setContextMenu: enabled => invoke('integration-context', enabled),
+  setDefaultPlayer: () => invoke('integration-default'),
+  setWindowPreset: preset => invoke('window-preset', preset),
   openFile: () => invoke('open-file'),
   openRecent: id => invoke('open-recent', id),
   openDropped: file => invoke('open-dropped', webUtils.getPathForFile(file)),

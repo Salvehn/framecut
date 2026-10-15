@@ -1,100 +1,89 @@
-# Framecut
+<p align="center">
+  <img src="assets/logo.svg" width="72" height="72" alt="Framecut logo">
+</p>
 
-Простой медиаплеер для Windows с обрезкой видео. Откройте файл, выберите начало и конец и сохраните фрагмент в новый файл или перезапишите исходный. Все операции с видео выполняются локально.
+<h1 align="center">Framecut</h1>
 
-**Русский · English · Deutsch · Español** — переключение языка без перезапуска, с запоминанием выбора. При первом запуске язык определяется по системе; для остальных языков используется английский.
+<p align="center">
+  A focused video player and trimmer for Windows.<br>
+  Fast cuts, precise boundaries, and local processing.
+</p>
 
-![Framecut](assets/screenshot.png)
+<p align="center">
+  <strong>English</strong>　·　<a href="README.ru.md">Русский</a>
+</p>
 
-## Скачать и запустить
+<p align="center">
+  <a href="https://github.com/Salvehn/framecut/releases/latest"><strong>Windows</strong></a>
+ 　·　
+  <a href="https://github.com/Salvehn/framecut/releases/latest"><strong>Portable</strong></a>
+ 　·　
+  <a href="https://github.com/Salvehn/framecut/releases"><strong>Release notes</strong></a>
+</p>
 
-Откройте [Releases](https://github.com/Salvehn/framecut/releases/latest):
+<p align="center">
+  <img src="https://img.shields.io/github/v/release/Salvehn/framecut?display_name=tag&sort=semver&style=flat-square&color=bcc9ff" alt="Latest release">
+  <img src="https://img.shields.io/github/actions/workflow/status/Salvehn/framecut/windows.yml?branch=main&style=flat-square&label=build" alt="Build status">
+  <img src="https://img.shields.io/badge/Windows-10%20%2F%2011%20x64-0078d4?style=flat-square&logo=windows11&logoColor=white" alt="Windows x64">
+  <img src="https://img.shields.io/badge/license-GPL--3.0-58658d?style=flat-square" alt="GPL-3.0-or-later">
+</p>
 
-- `Framecut-1.0.0-x64-nsis.exe` — установщик с выбором папки и ярлыками.
-- `Framecut-1.0.0-x64-portable.exe` — запуск без установки.
+<p align="center">
+  <img src="assets/screenshot.png" width="900" alt="Framecut for Windows">
+</p>
 
-Windows 10/11, 64 бита. Node.js и отдельно установленный FFmpeg не нужны. Установщик не имеет сертификата Windows Authenticode; обновления проверяются отдельной подписью Ed25519.
+## Highlights
 
-## Возможности
+- **Everyday playback.** Seek, step through frames, change speed, adjust sound, and go full screen.
+- **A simpler trim.** Drag the in/out handles, enter timecodes, and preview just your selection.
+- **Fast by default.** Keep the original streams or switch to precise re-encoding.
+- **Two ways to save.** Create a new file or safely replace the source after the result is verified.
+- **Windows integration.** Open videos from Explorer and choose Framecut as the default player in Settings.
+- **Signed updates.** Download verified releases and update the installed app with a restart.
+- **A quiet interface.** Four languages, window-size presets, compact controls, custom scrollbars, and gentle motion.
+- **Local by design.** Videos stay on your computer. No account or cloud processing.
 
-- Открытие через диалог, перетаскивание файла и список последних 12 видео.
-- Воспроизведение, перемотка, громкость, отключение звука, скорость 0,25–3× и полный экран.
-- Шкала с кадрами, перетаскиваемые границы и точный ввод времени в миллисекундах.
-- Просмотр только выделенного фрагмента перед сохранением.
-- Быстрая обрезка без перекодирования по умолчанию; точная выбирается в компактном списке.
-- Два режима сохранения: новый файл и перезапись исходного.
-- Прогресс экспорта, отмена, открытие папки с результатом.
-- Запоминание языка, громкости и режима экспорта.
-- Компактное окно, тонкие скроллбары в цвет темы и один основной путь: открыть → выбрать фрагмент → сохранить.
-- Проверка новых версий, загрузка с прогрессом и установка с перезапуском.
+## Trim a video
 
-## Обновления
+1. Open a file or drop it into the window.
+2. Drag the selection boundaries or set the start and end time.
+3. Choose **Fast** or **Precise**. Fast cuts follow keyframes; precise cuts re-encode the selection.
+4. Pick **New file** or **Overwrite** next to **Save**.
 
-Установленная версия проверяет GitHub Releases через 15 секунд после запуска и затем раз в 6 часов. Проверку можно запустить вручную внизу боковой панели. Когда выходит новая версия, там появляется кнопка **Скачать обновление**, а после загрузки — **Обновить и перезапустить**. Приложение сохраняет настройки, запускает обновление текущей установки и открывается снова. Перезапуск недоступен во время подготовки видео или экспорта.
+Overwrite stages and verifies the result before replacing the source, then reopens the trimmed video. Failed or cancelled exports keep the original intact. A completed overwrite cannot be undone.
 
-Перед загрузкой проверяется подпись Ed25519 манифеста; после загрузки и непосредственно перед установкой — размер и SHA-256 установщика. Неподписанные и изменённые обновления отклоняются. Загрузка начинается только после нажатия кнопки; её можно отменить. Ключ проверки включён в приложение, закрытый ключ хранится в секрете GitHub Actions `FRAMECUT_UPDATE_PRIVATE_KEY`.
+See [playback, shortcuts, and format notes](docs/usage.md) for details.
 
-Portable-версия обнаруживает обновления и открывает страницу нового релиза для ручной замены файла. Автоматическая установка с перезапуском предназначена для версии, установленной через NSIS. Проверка и скачивание обновлений обращаются к GitHub; видеофайлы туда не отправляются.
+## Install
 
-Быстрая обрезка выбрана по умолчанию. Она сохраняет кодеки и работает по ключевым кадрам: начало и длительность могут отличаться от выделения. Точная обрезка перекодирует выбранный фрагмент; при создании нового файла используется MP4 / H.264 / AAC с CRF 18. При перезаписи сохраняется контейнер исходника с совместимыми кодеками: например, VP9/Opus для WebM и H.264/AAC для MP4/MKV/MOV. Нечётные размеры округляются вниз до чётных для YUV 4:2:0. Временная граница ограничена кадрами и аудиосэмплами исходника. Минимальная длина выделения — 0,04 секунды.
+| Edition | Supported system | Download |
+| --- | --- | --- |
+| Installer | Windows 10/11 x64 | [Windows installer](https://github.com/Salvehn/framecut/releases/latest) |
+| Portable | Windows 10/11 x64 | [Portable executable](https://github.com/Salvehn/framecut/releases/latest) |
 
-Поддерживаются распространённые контейнеры MP4, MKV, MOV, AVI, WebM, WMV и другие форматы, которые читает включённый FFmpeg. Если Chromium не воспроизводит кодек напрямую, приложение создаёт временную совместимую копию для просмотра. Подготовка больших файлов занимает время и место на диске; экспорт всегда выполняется из оригинала. Временные копии удаляются при обычном закрытии приложения. При аварийном завершении они могут остаться в системной временной папке `framecut-*`.
+FFmpeg is bundled; no separate runtime or codec installation is needed. The installer adds **Open in Framecut** to video context menus. On Windows 11, it appears under **Show more options**. Use **Settings → Set as default** to choose file associations in Windows.
 
-Экспорт включает основную видеодорожку и аудиодорожки. Субтитры, вложения и дополнительные видеодорожки в обрезанный файл не входят. Для HDR и сложных цветовых профилей цветокоррекция при точной обрезке не предусмотрена; используйте быструю обрезку для сохранения исходного потока. Изображение при покадровой перемотке рассчитывается по средней частоте кадров; для видео с переменной частотой позиция может отличаться на кадр.
+The installed edition supports in-app updates and Windows integration. Portable updates are downloaded manually from the release page.
 
-Режим сохранения находится непосредственно у кнопки **Сохранить** под шкалой. В режиме **Новый файл** оригинал не изменяется. В режиме **Перезапись** кнопка называется **Перезаписать**: результат сначала записывается во временный файл рядом с исходником, проверяется и только затем атомарно заменяет его. Плеер освобождает файл перед заменой и открывает уже обрезанное видео. При ошибке или отмене до замены исходник остаётся целым. Успешная перезапись не имеет команды отмены.
+## Development
 
-## Управление
-
-| Клавиши | Действие |
-| --- | --- |
-| `Ctrl+O` | Открыть видео |
-| `Пробел` | Воспроизведение / пауза |
-| `←` / `→` | Перемотка на 5 секунд |
-| `Shift+←` / `Shift+→` | Перемотка на 10 секунд |
-| `I` / `O` | Начало / конец в текущей позиции |
-| `,` / `.` | Предыдущий / следующий кадр |
-| `F` / `Esc` | Полный экран / выход |
-| `M` | Звук |
-| `Ctrl+S` | Сохранить выделенный фрагмент |
-
-Границы на шкале доступны с клавиатуры: `Tab` для фокуса, `←` / `→` для сдвига на кадр, `Shift` для шага в секунду, `Home` / `End` для края видео. Буквенные сочетания работают и при русской раскладке.
-
-## Разработка
-
-Нужны Windows x64, Node.js 24 и pnpm 11.25.0. Из корня репозитория:
+Requires Windows x64, Node.js 24, and pnpm 11.25.0.
 
 ```powershell
 pnpm install --frozen-lockfile
 pnpm start
 ```
 
-Electron скачивается при первом запуске. FFmpeg скачивается при установке зависимостей. Все версии закреплены в `pnpm-lock.yaml`; для первого запуска нужен интернет.
+Run the checks and build the Windows packages:
 
 ```powershell
-pnpm test          # тесты обработки настоящих видео, отмены и локализации
-pnpm test:smoke    # запуск окна, четыре языка, видео, шкала и экспорт
-pnpm build        # установщик и portable-файл в dist/
+pnpm test
+pnpm test:smoke
+pnpm build
 ```
 
-GitHub Actions собирает Windows-приложение при push в `main`, создании тега и вручную. Результат доступен в артефактах запуска. При публикации тега вида `v1.0.1` workflow подписывает манифест обновления и создаёт GitHub Release с установщиком и portable-файлом. Версия тега должна совпадать с `package.json`. Закрытый ключ уже настроен в секрете репозитория; не добавляйте его в код. Локальная подпись: задайте `FRAMECUT_UPDATE_KEY_FILE` с путём к закрытому PEM-ключу и запустите `node scripts/sign-update.cjs` после сборки.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for process boundaries and Windows registration. Build and publishing instructions are in [docs/releases.md](docs/releases.md).
 
-### Устройство проекта
+## License
 
-`src/main.cjs` — окно, диалоги, проверенные IPC-обработчики и локальные настройки. `src/media.cjs` — запуск FFmpeg/FFprobe, обработка метаданных, проверка диапазона и безопасный экспорт. `src/preload.cjs` — ограниченный мост к интерфейсу. `src/renderer/` — интерфейс без внешних ресурсов. `src/shared/i18n.js` — все четыре перевода, включая диалоги и ошибки.
-
-Renderer работает в песочнице, без доступа к Node.js. Локальное видео передаётся через собственный протокол по случайному идентификатору с поддержкой запросов диапазонов байтов; произвольные пути через этот протокол недоступны. Открытие внешних окон из renderer и запросы разрешений заблокированы. Приложение не содержит аналитики и облачной обработки видео. Сетевые обращения используются только для обновлений GitHub. Список последних файлов хранится только локально в `%APPDATA%/Framecut/preferences.json`.
-
-## English
-
-Framecut is a Windows media player with video trimming. Open a video, drag the in/out handles or enter exact timecodes, preview the selection, and save a new clip or explicitly overwrite the source. Playback includes seeking, volume, speed control and full screen.
-
-**Fast** is selected by default and retains the original streams with keyframe-based boundaries. Choose **Precise** for exact re-encoding. Saving has two separate modes: **New file** and **Overwrite**. Overwrites are staged, verified and atomically replaced, then reopened in the player. Unsupported playback formats are converted to a temporary preview; export uses the original. Audio is retained, while subtitles and attachments are excluded. All processing stays on your computer. The interface supports English, Russian, German and Spanish.
-
-The installed app checks for updates on startup and every six hours. Download updates from the sidebar, then install and restart with one click. Release manifests are authenticated with Ed25519 and installers are verified using SHA-256. The portable edition opens the latest release page for manual replacement. Video files are never uploaded.
-
-Download the installer or portable executable from [Releases](https://github.com/Salvehn/framecut/releases/latest). Requires Windows 10/11 x64. No separate runtime or FFmpeg installation is needed. Development: `pnpm install --frozen-lockfile`, `pnpm start`; tests: `pnpm test`, `pnpm test:smoke`; packaging: `pnpm build`.
-
-## Лицензия
-
-[GPL-3.0-or-later](LICENSE). Сведения о включённых компонентах и исходниках FFmpeg: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[GPL-3.0-or-later](LICENSE). Bundled components and their sources are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -11,8 +11,8 @@
     "start": "electron .",
     "test": "node --test test/*.test.cjs",
     "test:smoke": "node scripts/smoke.cjs",
-    "build": "install-electron && electron-builder --win nsis portable --x64 --publish never",
-    "build:dir": "install-electron && electron-builder --win --x64 --dir --publish never"
+    "build": "node scripts/prepare-installer.cjs && install-electron && electron-builder --win nsis portable --x64 --publish never",
+    "build:dir": "node scripts/prepare-installer.cjs && install-electron && electron-builder --win --x64 --dir --publish never"
   },
   "devDependencies": {
     "electron": "44.7.2",
@@ -46,6 +46,7 @@
       "target": ["nsis", "portable"]
     },
     "nsis": {
+      "include": "assets/installer.nsh",
       "artifactName": "Framecut-${version}-${arch}-nsis.${ext}",
       "oneClick": false,
       "perMachine": false,
