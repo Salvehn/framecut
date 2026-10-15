@@ -7,7 +7,7 @@ const { translate } = FramecutI18n;
 const { formatTime, parseTime, formatSize } = FramecutTime;
 const video = $('video');
 const state = { language: 'en', media: null, start: 0, end: 0, busy: false, exporting: false,
-  previewing: false, converting: false, mode: 'precise', recent: [], fallbackTried: false,
+  previewing: false, converting: false, mode: 'copy', saveMode: 'new', replacing: false, recent: [], fallbackTried: false,
   statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, update: { status: 'idle' } };
 const t = (key, values) => translate(state.language, key, values);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -84,6 +84,7 @@ function updateEnabled() {
   for (const id of ['play', 'back', 'forward', 'seek', 'fullscreen', 'reset', 'preview', 'in-handle', 'out-handle']) $(id).disabled = !available;
   $('trim-fields').disabled = !available;
   $('mode-fields').disabled = state.exporting;
+  $('save-mode').disabled = state.exporting;
   $('export').disabled = !available || state.end - state.start < 0.0399;
   $('open-top').disabled = state.busy || state.exporting;
   $('open-center').disabled = state.busy || state.exporting;
@@ -154,8 +155,9 @@ function renderUpdate(update) {
   $('cancel-update').hidden = status !== 'downloading';
   $('update-progress').hidden = status !== 'downloading';
   $('update-progress').value = update.progress || 0;
-  const descriptions = { idle: 'updateIdle', current: 'updateCurrent', available: 'updateAvailable', ready: 'updateReady', error: 'updateError' };
+  const descriptions = { available: 'updateAvailable', ready: 'updateReady' };
   $('update-description').textContent = descriptions[status] ? t(descriptions[status], { version: update.version }) : '';
+  $('update-button').title = status === 'error' ? t('updateError') : status === 'current' ? t('updateCurrent') : '';
 }
 
 function updateSelection() {
@@ -179,7 +181,9 @@ function updateSelection() {
     $(id).setAttribute('aria-valuetext', formatTime(time, true));
   }
   $('ruler').querySelectorAll('span').forEach((span, index) => { span.textContent = formatTime(duration * index / 5).replace(/^00:/, ''); });
-  $('fast-note').hidden = state.mode !== 'copy';
+  $('export').querySelector('span').textContent = t(state.saveMode === 'overwrite' ? 'overwriteAction' : 'saveAction');
+  title($('save-mode'), state.saveMode === 'overwrite' ? 'overwriteHint' : 'newFile');
+  title($('cut-mode'), state.mode === 'copy' ? 'fastHint' : 'preciseHint');
   $('export').disabled = !state.media || state.busy || state.exporting || state.end - state.start < 0.0399;
 }
 
@@ -271,8 +275,10 @@ async function exportSelection() {
   video.pause(); state.previewing = false; state.exporting = true;
   updateEnabled(); updateTransport();
   try {
-    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode }));
+    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, saveMode: state.saveMode }));
     if (result.cancelled) { $('export-dialog').close(); return; }
+    state.replacing = false;
+    if (result.updatedMedia) { state.exporting = false; await useMedia(result.updatedMedia); }
     $('export-title').textContent = t('complete');
     $('export-subtitle').textContent = `${result.name} · ${formatTime(result.duration, true)} · ${formatSize(result.size, state.language)}`;
     $('export-progress-wrap').hidden = true;
@@ -331,9 +337,12 @@ $('preview').addEventListener('click', async () => {
   }
   updateTransport();
 });
-document.querySelectorAll('input[name=mode]').forEach(input => input.addEventListener('change', () => {
-  state.mode = input.value; updateSelection(); api.setPreferences({ mode: state.mode });
-}));
+$('cut-mode').addEventListener('change', event => {
+  state.mode = event.target.value; updateSelection(); api.setPreferences({ mode: state.mode });
+});
+$('save-mode').addEventListener('change', event => {
+  state.saveMode = event.target.value; updateSelection(); api.setPreferences({ saveMode: state.saveMode });
+});
 $('export').addEventListener('click', exportSelection);
 $('cancel-export').addEventListener('click', () => { $('cancel-export').disabled = true; api.cancelExport(); });
 $('done-export').addEventListener('click', () => $('export-dialog').close());
@@ -393,7 +402,7 @@ video.addEventListener('pause', updateTransport);
 video.addEventListener('ended', () => { state.previewing = false; updateTransport(); });
 video.addEventListener('loadedmetadata', () => { video.playbackRate = Number($('speed').value); updateEnabled(); updatePosition(); drawThumbnails(video.src); });
 video.addEventListener('error', () => {
-  if (state.converting || !state.media || !video.getAttribute('src')) return;
+  if (state.converting || state.replacing || !state.media || !video.getAttribute('src')) return;
   if (!state.fallbackTried) convertPreview();
   else toast('playbackError', true);
 });
@@ -433,6 +442,11 @@ window.addEventListener('keydown', event => {
 });
 
 api.onEvent(message => {
+  if (message.type === 'source-replacing') {
+    state.replacing = true; state.thumbnailAbort?.abort(); video.pause(); video.removeAttribute('src'); video.load();
+    api.releaseSource();
+  }
+  if (message.type === 'source-restore') { state.replacing = false; video.src = state.media.url; video.load(); }
   if (message.type === 'update-state') renderUpdate(message.state);
   if (message.type === 'loading') { video.pause(); setBusy(true); }
   if (message.type === 'recent') { state.recent = message.items; renderRecent(); }
@@ -452,10 +466,11 @@ api.onEvent(message => {
 (async () => {
   try {
     const data = unwrap(await api.bootstrap());
-    state.recent = data.recent; state.mode = data.mode;
+    state.recent = data.recent; state.mode = data.mode; state.saveMode = data.saveMode || 'new';
     $('version').textContent = data.version;
     $('volume').value = data.volume; video.volume = data.volume;
-    document.querySelector(`input[name=mode][value="${data.mode}"]`).checked = true;
+    $('cut-mode').value = state.mode;
+    $('save-mode').value = state.saveMode;
     state.update = data.update || { status: 'idle' };
     applyLanguage(data.language); updateEnabled(); state.initialized = true;
   } catch (error) { reportError(error); }

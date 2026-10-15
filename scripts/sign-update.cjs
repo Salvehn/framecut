@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { verifyManifest, RELEASES } = require('../src/update-core.cjs');
 const version = require('../package.json').version;
+if (process.env.GITHUB_REF_TYPE === 'tag' && process.env.GITHUB_REF_NAME !== `v${version}`) throw new Error('Release tag must match package.json version');
 const name = `Framecut-${version}-x64-nsis.exe`;
 const filePath = path.join(__dirname, '..', 'dist', name);
 const privateKey = process.env.FRAMECUT_UPDATE_PRIVATE_KEY ||

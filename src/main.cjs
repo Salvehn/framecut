@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const media = require('./media.cjs');
-const { serveMedia } = require('./media-protocol.cjs');
+const { serveMedia, closeMediaStreams } = require('./media-protocol.cjs');
 const { Updater } = require('./updater.cjs');
 const { dictionaries, normalizeLanguage, translate } = require('./shared/i18n.js');
 
@@ -24,6 +24,7 @@ let opening;
 let exporting;
 let lastExport;
 let updater;
+let releaseSource;
 let closing = false;
 const mediaFiles = new Map();
 const t = (key, values) => translate(preferences?.language || 'en', key, values);
@@ -36,13 +37,14 @@ const mediaUrl = filePath => {
 
 async function loadPreferences() {
   preferencesPath = path.join(app.getPath('userData'), 'preferences.json');
-  const defaults = { language: normalizeLanguage(app.getLocale()), recent: [], volume: 0.8, mode: 'precise' };
+  const defaults = { language: normalizeLanguage(app.getLocale()), recent: [], volume: 0.8, mode: 'copy', cutModeChosen: false, saveMode: 'new' };
   try {
     const saved = JSON.parse(await fs.readFile(preferencesPath, 'utf8'));
     return { ...defaults, language: normalizeLanguage(saved.language || defaults.language),
       recent: Array.isArray(saved.recent) ? saved.recent.filter(item => typeof item.id === 'string' && typeof item.path === 'string').slice(0, 12) : [],
       volume: typeof saved.volume === 'number' ? Math.max(0, Math.min(1, saved.volume)) : defaults.volume,
-      mode: ['precise', 'copy'].includes(saved.mode) ? saved.mode : defaults.mode };
+      mode: saved.cutModeChosen && ['precise', 'copy'].includes(saved.mode) ? saved.mode : defaults.mode,
+      cutModeChosen: Boolean(saved.cutModeChosen), saveMode: saved.saveMode === 'overwrite' ? 'overwrite' : 'new' };
   } catch { return defaults; }
 }
 
@@ -111,29 +113,61 @@ async function chooseAndExport(options) {
   if (exporting || opening || updater?.state.status === 'installing') throw Object.assign(new Error('Busy'), { code: 'BUSY' });
   if (!current || options?.id !== current.id) throw new Error('Unknown media');
   if (!['precise', 'copy'].includes(options.mode)) throw Object.assign(new Error('Unknown mode'), { code: 'INVALID_MODE' });
+  if (!['new', 'overwrite'].includes(options.saveMode)) throw Object.assign(new Error('Unknown save mode'), { code: 'INVALID_MODE' });
   media.validateRange(options.start, options.end, current.info.duration);
   const selected = current;
   const sourceExtension = path.extname(selected.path).toLowerCase();
-  const extension = options.mode === 'precise' ? '.mp4' : ['.mp4', '.mkv', '.mov', '.webm', '.m4v', '.avi', '.ts'].includes(sourceExtension) ? sourceExtension : '.mkv';
+  const overwrite = options.saveMode === 'overwrite';
+  const extension = options.mode === 'precise' ? '.mp4' : ['.mp4', '.mkv', '.mov', '.webm', '.m4v', '.avi', '.ts', '.wmv', '.mpg', '.mpeg', '.ogv', '.flv', '.mts', '.m2ts', '.3gp'].includes(sourceExtension) ? sourceExtension : '.mkv';
   const suggested = `${path.basename(selected.path, path.extname(selected.path))}_clip${extension}`;
-  const { canceled, filePath } = await dialog.showSaveDialog(window, {
-    title: t('saveDialog'), buttonLabel: t('saveClip'), defaultPath: path.join(path.dirname(selected.path), suggested),
-    filters: [{ name: options.mode === 'precise' ? 'MP4 (H.264 / AAC)' : extension.slice(1).toUpperCase(), extensions: [extension.slice(1)] }]
-  });
-  if (canceled || !filePath) return { cancelled: true };
+  let filePath = selected.path;
+  if (!overwrite) {
+    const result = await dialog.showSaveDialog(window, {
+      title: t('saveDialog'), buttonLabel: t('saveClip'), defaultPath: path.join(path.dirname(selected.path), suggested),
+      filters: [{ name: options.mode === 'precise' ? 'MP4 (H.264 / AAC)' : extension.slice(1).toUpperCase(), extensions: [extension.slice(1)] }]
+    });
+    if (result.canceled || !result.filePath) return { cancelled: true };
+    filePath = result.filePath;
+  }
   // Reserve the operation before any further asynchronous work.
   if (exporting || current !== selected) throw Object.assign(new Error('Busy'), { code: 'BUSY' });
   const controller = new AbortController();
   exporting = controller;
   emit('export-start');
+  let sourceWasReleased = false;
+  let succeeded = false;
   try {
     const result = await media.exportClip({ input: selected.path, output: filePath,
       start: options.start, end: options.end, totalDuration: selected.info.duration,
-      mode: options.mode, tools, signal: controller.signal,
+      mode: options.mode, overwrite, tools, signal: controller.signal,
+      beforeReplace: overwrite ? async () => {
+        sourceWasReleased = true;
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => { releaseSource = null; reject(new Error('Could not release source')); }, 8000);
+          releaseSource = () => { clearTimeout(timer); releaseSource = null; resolve(); };
+          emit('source-replacing');
+        });
+        await closeMediaStreams(selected.path);
+        if (selected.previewPath) await closeMediaStreams(selected.previewPath);
+      } : undefined,
       onProgress: progress => emit('export-progress', { progress }) });
     lastExport = result.output;
-    return { name: path.basename(result.output), size: result.size, duration: result.duration };
-  } finally { exporting = null; emit('export-finished'); }
+    let updatedMedia;
+    if (overwrite) {
+      const id = randomUUID();
+      current = { id, path: selected.path, info: result, previewPath: null };
+      mediaFiles.clear();
+      updatedMedia = { id, name: path.basename(selected.path), ...result, url: mediaUrl(selected.path), nativePreview: media.nativePreviewSupported(selected.path, result) };
+      const recent = preferences.recent.find(item => item.path === selected.path);
+      if (recent) recent.duration = result.duration;
+      await savePreferences().catch(() => {}); emit('recent', { items: recentPublic() });
+    }
+    succeeded = true;
+    return { name: path.basename(result.output), size: result.size, duration: result.duration, updatedMedia };
+  } finally {
+    exporting = null; emit('export-finished');
+    if (sourceWasReleased && !succeeded) emit('source-restore');
+  }
 }
 
 function registerIpc() {
@@ -145,7 +179,8 @@ function registerIpc() {
       return { ok: false, code: error.code || (error.code === 'ENOENT' ? 'MISSING_FILE' : 'MEDIA_ERROR') };
     }
   });
-  handle('bootstrap', () => ({ version: app.getVersion(), language: preferences.language, volume: preferences.volume, mode: preferences.mode, recent: recentPublic(), update: updater.state }));
+  handle('bootstrap', () => ({ version: app.getVersion(), language: preferences.language, volume: preferences.volume, mode: preferences.mode, saveMode: preferences.saveMode, recent: recentPublic(), update: updater.state }));
+  handle('release-source', () => { releaseSource?.(); });
   handle('update-check', () => updater.check());
   handle('update-download', () => updater.download());
   handle('update-cancel', () => updater.cancel());
@@ -178,7 +213,8 @@ function registerIpc() {
   });
   handle('set-preferences', async values => {
     if (typeof values?.volume === 'number' && Number.isFinite(values.volume)) preferences.volume = Math.max(0, Math.min(1, values.volume));
-    if (['precise', 'copy'].includes(values?.mode)) preferences.mode = values.mode;
+    if (['precise', 'copy'].includes(values?.mode)) { preferences.mode = values.mode; preferences.cutModeChosen = true; }
+    if (['new', 'overwrite'].includes(values?.saveMode)) preferences.saveMode = values.saveMode;
     await savePreferences();
   });
   handle('reveal-export', () => { if (lastExport) shell.showItemInFolder(lastExport); });

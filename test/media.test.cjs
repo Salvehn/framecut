@@ -39,6 +39,29 @@ test('fast cut retains video and audio codecs', async () => {
   const result = await media.exportClip({ input: source, output, start: 2, end: 4, totalDuration: 6, mode: 'copy', tools });
   assert.equal(result.codec, 'h264'); assert.equal(result.audioCodec, 'aac'); assert.ok(result.size > 1000);
 });
+test('explicit overwrite atomically replaces only the source with a verified clip', async () => {
+  const overwriteSource = path.join(directory, 'overwrite source.mp4');
+  await fs.copyFile(source, overwriteSource);
+  let prepared = false;
+  const result = await media.exportClip({ input: overwriteSource, output: overwriteSource,
+    start: 1.25, end: 2.75, totalDuration: 6, mode: 'precise', overwrite: true, tools,
+    beforeReplace: async () => { prepared = true; assert.ok(Math.abs((await media.probe(overwriteSource, tools)).duration - 6) < 0.1); } });
+  assert.equal(prepared, true); assert.ok(Math.abs(result.duration - 1.5) < 0.08);
+  assert.ok(Math.abs((await media.probe(overwriteSource, tools)).duration - 1.5) < 0.08);
+});
+test('failure just before overwrite preserves the entire original', async () => {
+  const overwriteSource = path.join(directory, 'failed overwrite.mp4'); await fs.copyFile(source, overwriteSource);
+  await assert.rejects(media.exportClip({ input: overwriteSource, output: overwriteSource,
+    start: 1, end: 2, totalDuration: 6, mode: 'precise', overwrite: true, tools,
+    beforeReplace: async () => { throw new Error('Simulated file lock'); } }), /file lock/);
+  assert.equal(createHash('sha256').update(await fs.readFile(overwriteSource)).digest('hex'), sourceHash);
+  assert.equal((await fs.readdir(directory)).filter(name => name.startsWith('.framecut-')).length, 0);
+});
+test('precise overwrite uses compatible codecs for WebM', async () => {
+  const output = path.join(directory, 'compatible.webm');
+  const result = await media.exportClip({ input: source, output, start: 1, end: 1.5, totalDuration: 6, mode: 'precise', tools });
+  assert.equal(result.codec, 'vp9'); assert.equal(result.audioCodec, 'opus');
+});
 test('does not overwrite an original, including case-insensitive Windows paths', async () => {
   await assert.rejects(media.exportClip({ input: source, output: source, start: 0, end: 2, totalDuration: 6, mode: 'precise', tools }), { code: 'SOURCE_OVERWRITE' });
   if (process.platform === 'win32') assert.equal(await media.sameFile(source, source.toUpperCase()), true);

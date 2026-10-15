@@ -2,6 +2,14 @@
 const fs = require('node:fs');
 const { Readable } = require('node:stream');
 const path = require('node:path');
+const readers = new Map();
+async function closeMediaStreams(filePath) {
+  await Promise.all([...readers.get(filePath) || []].map(stream => new Promise(resolve => {
+    if (stream.closed) return resolve();
+    stream.once('close', resolve); stream.destroy();
+  })));
+  readers.delete(filePath);
+}
 
 async function serveMedia(request, files) {
   const url = new URL(request.url);
@@ -23,8 +31,14 @@ async function serveMedia(request, files) {
     const headers = { 'Content-Type': types[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
       'Content-Length': String(end - start + 1), 'Accept-Ranges': 'bytes', 'Cache-Control': 'no-store' };
     if (status === 206) headers['Content-Range'] = `bytes ${start}-${end}/${stat.size}`;
-    const body = request.method === 'HEAD' ? null : Readable.toWeb(fs.createReadStream(filePath, { start, end }));
+    let body = null;
+    if (request.method !== 'HEAD') {
+      const stream = fs.createReadStream(filePath, { start, end });
+      const active = readers.get(filePath) || new Set(); active.add(stream); readers.set(filePath, active);
+      stream.once('close', () => { active.delete(stream); if (!active.size && readers.get(filePath) === active) readers.delete(filePath); });
+      body = Readable.toWeb(stream);
+    }
     return new Response(body, { status, headers });
   } catch { return new Response(null, { status: 404 }); }
 }
-module.exports = { serveMedia };
+module.exports = { serveMedia, closeMediaStreams };

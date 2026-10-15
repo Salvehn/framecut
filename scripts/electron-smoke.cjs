@@ -18,6 +18,9 @@ module.exports = async ({ window, openMedia, tools }) => {
   try {
     await new Promise(resolve => window.webContents.once('did-finish-load', resolve));
     await waitFor('state.initialized');
+    assert.equal(await evaluate('state.mode'), 'copy');
+    assert.equal(await evaluate('state.saveMode'), 'new');
+    assert.equal(await evaluate('CSS.supports("appearance", "base-select")'), true);
     if (!window.isVisible()) await new Promise(resolve => window.once('ready-to-show', resolve));
     await new Promise(resolve => setTimeout(resolve, 500));
     const errors = [];
@@ -58,9 +61,34 @@ module.exports = async ({ window, openMedia, tools }) => {
       start: 1.25, end: 4.75, totalDuration: 8, mode: 'precise', tools });
     assert.ok(Math.abs(result.duration - 3.5) < 0.08); assert.equal(result.hasAudio, true);
     await fs.writeFile(path.join(directory, 'loaded.png'), (await window.webContents.capturePage()).toPNG());
+    for (const language of ['ru', 'en', 'de', 'es']) {
+      window.setSize(960, 680);
+      await evaluate(`applyLanguage('${language}')`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const fits = await evaluate(`(() => {
+        const bar = document.querySelector('.edit-bar').getBoundingClientRect();
+        const button = document.getElementById('export').getBoundingClientRect();
+        const fields = document.getElementById('trim-fields').getBoundingClientRect();
+        const controls = document.querySelector('.save-controls').getBoundingClientRect();
+        return button.right <= innerWidth && button.bottom <= innerHeight && fields.right <= controls.left && bar.bottom <= innerHeight;
+      })()`);
+      assert.equal(fits, true, `Compact layout: ${language}`);
+    }
+    window.setSize(1180, 790); await evaluate("applyLanguage('ru')");
+    console.log('PASS compact editing toolbar fits all four languages at minimum window size');
+    const initialId = await evaluate('state.media.id');
+    await evaluate(`(async () => {
+      state.mode = 'precise'; document.getElementById('cut-mode').value = 'precise';
+      state.saveMode = 'overwrite'; document.getElementById('save-mode').value = 'overwrite';
+      updateSelection(); await exportSelection();
+    })()`);
+    await waitFor(`state.media.id !== ${JSON.stringify(initialId)} && video.readyState >= 2 && !state.exporting`);
+    const overwritten = await require('../src/media.cjs').probe(path.join(directory, 'sample.mp4'), tools);
+    assert.ok(Math.abs(overwritten.duration - 3.5) < 0.08); assert.equal(overwritten.hasAudio, true);
+    console.log('PASS overwrite via renderer IPC, reader release, atomic replacement and reloaded playback');
     assert.deepEqual(errors, []);
     console.log('PASS playback, seek, thumbnails, selection, clip preview, precise export and audio');
-    await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: true, languages: ['ru', 'en', 'de', 'es'], duration: result.duration, hasAudio: result.hasAudio }, null, 2));
+    await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: true, languages: ['ru', 'en', 'de', 'es'], duration: result.duration, hasAudio: result.hasAudio, overwrite: true, customDropdown: true }, null, 2));
     app.quit();
   } catch (error) {
     console.error('SMOKE FAILED:', error);

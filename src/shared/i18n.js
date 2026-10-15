@@ -173,6 +173,13 @@
       updateRetry: 'Reintentar actualización', updateDev: 'Instala la aplicación para actualizar automáticamente', updateInstalling: 'Instalando…' }
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], updateStrings[language]);
+  const editingStrings = {
+    en: { cutMode: 'Cut', cutFast: 'Fast', cutPrecise: 'Precise', newFile: 'New file', overwrite: 'Overwrite', overwriteHint: 'Replaces the original file.', overwriteAction: 'Overwrite', saveAction: 'Save' },
+    ru: { cutMode: 'Обрезка', cutFast: 'Быстрая', cutPrecise: 'Точная', newFile: 'Новый файл', overwrite: 'Перезапись', overwriteHint: 'Исходный файл будет заменён.', overwriteAction: 'Перезаписать', saveAction: 'Сохранить' },
+    de: { cutMode: 'Schnitt', cutFast: 'Schnell', cutPrecise: 'Präzise', newFile: 'Neue Datei', overwrite: 'Ersetzen', overwriteHint: 'Die Originaldatei wird ersetzt.', overwriteAction: 'Ersetzen', saveAction: 'Speichern' },
+    es: { cutMode: 'Corte', cutFast: 'Rápido', cutPrecise: 'Preciso', newFile: 'Nuevo archivo', overwrite: 'Sobrescribir', overwriteHint: 'Reemplaza el archivo original.', overwriteAction: 'Sobrescribir', saveAction: 'Guardar' }
+  };
+  for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], editingStrings[language]);
   function normalizeLanguage(language) {
     const code = String(language || '').toLowerCase().split(/[-_]/)[0];
     return Object.hasOwn(dictionaries, code) ? code : 'en';

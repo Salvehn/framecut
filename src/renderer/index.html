@@ -37,7 +37,6 @@
 
   <header class="titlebar">
     <div class="brand"><span class="brand-mark"><i></i><i></i></span><span>framecut<span class="brand-dot">.</span></span></div>
-    <span class="titlebar-caption" data-i18n="appTag"></span>
     <div class="window-buttons">
       <button class="window-button" id="minimize" data-title="minimize"><svg><use href="#i-minus"/></svg></button>
       <button class="window-button" id="maximize" data-title="maximize"><svg><use href="#i-window"/></svg></button>
@@ -47,10 +46,6 @@
 
   <div class="app-layout">
     <aside class="sidebar">
-      <div class="sidebar-top">
-        <p class="eyebrow" data-i18n="workspace"></p>
-        <div class="nav-item active"><svg><use href="#i-play"/></svg><span data-i18n="player"></span><span class="nav-dot"></span></div>
-      </div>
       <div class="recent-section">
         <div class="section-label"><span data-i18n="recent"></span><svg><use href="#i-clock"/></svg></div>
         <div id="recent-files"></div>
@@ -59,7 +54,6 @@
       <div class="sidebar-bottom">
         <label class="language-label" for="language"><svg><use href="#i-globe"/></svg><span data-i18n="language"></span></label>
         <select id="language"><option value="en">English</option><option value="ru">Русский</option><option value="de">Deutsch</option><option value="es">Español</option></select>
-        <div class="privacy-note"><svg><use href="#i-lock"/></svg><span data-i18n="localOnly"></span></div>
         <div class="update-control"><button class="update-button" id="update-button"><svg><use href="#i-reset"/></svg><span id="update-button-text" data-i18n="checkUpdates"></span></button><button class="icon-button" id="cancel-update" data-title="cancelUpdate" hidden><svg><use href="#i-close"/></svg></button></div>
         <progress id="update-progress" max="1" value="0" hidden></progress><p class="update-description" id="update-description"></p>
         <span class="app-version">FRAMECUT <span id="version">1.0.0</span></span>
@@ -68,7 +62,7 @@
 
     <main class="main">
       <header class="workspace-header">
-        <div class="heading"><div class="breadcrumb"><span data-i18n="workspace"></span><span>/</span><span data-i18n="player"></span></div><h1 id="file-heading" data-i18n="session"></h1></div>
+        <div class="heading"><h1 id="file-heading" data-i18n="session"></h1></div>
         <button class="button secondary" id="open-top"><svg><use href="#i-plus"/></svg><span data-i18n="openVideo"></span><kbd>Ctrl O</kbd></button>
       </header>
 
@@ -84,12 +78,8 @@
                 <span class="scissor-bubble"><svg><use href="#i-scissors"/></svg></span>
                 <span class="spark spark-one">+</span><span class="spark spark-two">+</span>
               </div>
-              <p class="ready-pill"><span></span><span data-i18n="ready"></span></p>
-              <h2 data-i18n="emptyTitle"></h2>
-              <p class="empty-description" data-i18n="emptySubtitle"></p>
-              <button class="button primary" id="open-center"><svg><use href="#i-folder"/></svg><span data-i18n="openVideo"></span><svg class="button-arrow"><use href="#i-arrow"/></svg></button>
+              <button class="button primary" id="open-center"><svg><use href="#i-folder"/></svg><span data-i18n="openVideo"></span></button>
               <span class="drop-hint" data-i18n="dropHint"></span>
-              <span class="formats" data-i18n="formatHint"></span>
             </div>
             <div class="video-badge" id="video-badge" hidden><span></span><span id="video-resolution"></span></div>
             <div class="stage-message" id="stage-message" hidden><div class="spinner"></div><strong id="stage-message-title"></strong><p id="stage-message-hint"></p><progress id="preview-progress" max="1" value="0" hidden></progress><button class="button secondary small" id="cancel-open" data-i18n="cancel"></button></div>
@@ -105,21 +95,6 @@
           </div>
         </section>
 
-        <aside class="trim-panel">
-          <header class="trim-heading"><span class="trim-icon"><svg><use href="#i-scissors"/></svg></span><div><h2 data-i18n="trimVideo"></h2><p data-i18n="trimSubtitle"></p></div></header>
-          <fieldset id="trim-fields" disabled>
-            <legend class="eyebrow" data-i18n="selection"></legend>
-            <div class="time-field"><label for="in-time" data-i18n="start"></label><div class="time-input-wrap"><input id="in-time" value="00:00:00.000" spellcheck="false" autocomplete="off" inputmode="decimal" data-title="milliseconds"><button class="icon-button mark-button" id="mark-in" data-title="setStart"><svg><use href="#i-mark-in"/></svg></button></div></div>
-            <div class="time-field"><label for="out-time" data-i18n="end"></label><div class="time-input-wrap"><input id="out-time" value="00:00:00.000" spellcheck="false" autocomplete="off" inputmode="decimal" data-title="milliseconds"><button class="icon-button mark-button" id="mark-out" data-title="setEnd"><svg><use href="#i-mark-out"/></svg></button></div></div>
-            <div class="duration-row"><span data-i18n="selectedDuration"></span><strong id="clip-duration">00:00:00.000</strong></div>
-          </fieldset>
-          <fieldset id="mode-fields"><legend class="eyebrow" data-i18n="exportMode"></legend>
-            <label class="mode-option"><input type="radio" name="mode" value="precise" checked><span class="radio-dot"></span><span><strong data-i18n="precise"></strong><small data-i18n="preciseHint"></small></span></label>
-            <label class="mode-option"><input type="radio" name="mode" value="copy"><span class="radio-dot"></span><span><strong data-i18n="fast"></strong><small data-i18n="fastHint"></small></span></label>
-            <p class="fast-note" id="fast-note" data-i18n="fastNote" hidden></p>
-          </fieldset>
-          <div class="export-area"><button class="button primary export-button" id="export" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveClip"></span></button><p><svg><use href="#i-lock"/></svg><span data-i18n="safeExport"></span></p></div>
-        </aside>
       </div>
 
       <section class="timeline-panel">
@@ -131,6 +106,16 @@
           <div class="playhead" id="playhead"><i></i></div>
           <button class="range-handle handle-in" id="in-handle" role="slider" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-label="inPoint" disabled><i></i><i></i></button>
           <button class="range-handle handle-out" id="out-handle" role="slider" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" data-label="outPoint" disabled><i></i><i></i></button>
+        </div>
+        <div class="edit-bar">
+          <fieldset id="trim-fields" disabled><legend class="sr-only" data-i18n="selection"></legend>
+            <div class="time-field"><label for="in-time" data-i18n="start"></label><div class="time-input-wrap"><input id="in-time" value="00:00:00.000" spellcheck="false" autocomplete="off" inputmode="decimal" data-title="milliseconds"><button class="icon-button mark-button" id="mark-in" data-title="setStart"><svg><use href="#i-mark-in"/></svg></button></div></div>
+            <div class="time-field"><label for="out-time" data-i18n="end"></label><div class="time-input-wrap"><input id="out-time" value="00:00:00.000" spellcheck="false" autocomplete="off" inputmode="decimal" data-title="milliseconds"><button class="icon-button mark-button" id="mark-out" data-title="setEnd"><svg><use href="#i-mark-out"/></svg></button></div></div>
+            <strong class="clip-duration" id="clip-duration" data-title="selectedDuration">00:00:00.000</strong>
+          </fieldset>
+          <div class="save-controls"><fieldset id="mode-fields"><legend class="sr-only" data-i18n="cutMode"></legend><select id="cut-mode" data-title="fastHint" data-label="cutMode"><option value="copy" data-i18n="cutFast" selected></option><option value="precise" data-i18n="cutPrecise"></option></select></fieldset>
+            <div class="save-cluster"><select id="save-mode" data-label="exportMode"><option value="new" data-i18n="newFile" selected></option><option value="overwrite" data-i18n="overwrite"></option></select><button class="button primary" id="export" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveAction"></span></button></div>
+          </div>
         </div>
         <div class="timeline-footer"><span><span class="selection-dot"></span><span data-i18n="dragHandles"></span></span><span id="selection-times">00:00:00.000 — 00:00:00.000</span></div>
       </section>

@@ -84,8 +84,18 @@ function exportArgs(input, output, start, duration, mode) {
   if (mode === 'copy') {
     args.push('-c', 'copy', '-avoid_negative_ts', 'make_zero');
   } else if (mode === 'precise') {
-    args.push('-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p',
-      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart');
+    const extension = path.extname(output).toLowerCase();
+    const profile = {
+      '.webm': ['-c:v', 'libvpx-vp9', '-crf', '28', '-b:v', '0', '-cpu-used', '3', '-row-mt', '1', '-c:a', 'libopus', '-b:a', '160k'],
+      '.avi': ['-c:v', 'mpeg4', '-q:v', '2', '-c:a', 'libmp3lame', '-b:a', '192k'],
+      '.wmv': ['-c:v', 'wmv2', '-q:v', '2', '-c:a', 'wmav2', '-b:a', '192k'],
+      '.ogv': ['-c:v', 'libtheora', '-q:v', '7', '-c:a', 'libvorbis', '-q:a', '5'],
+      '.mpg': ['-c:v', 'mpeg2video', '-q:v', '2', '-c:a', 'mp2', '-b:a', '192k'],
+      '.mpeg': ['-c:v', 'mpeg2video', '-q:v', '2', '-c:a', 'mp2', '-b:a', '192k']
+    }[extension] || ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-c:a', 'aac', '-b:a', '192k'];
+    args.push(...profile, '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2');
+    if (['.mp4', '.mov', '.m4v', '.3gp'].includes(extension)) args.push('-movflags', '+faststart');
+    if (['.ts', '.mts', '.m2ts'].includes(extension)) args.push('-f', 'mpegts');
   } else {
     throw Object.assign(new Error('Unknown export mode'), { code: 'INVALID_MODE' });
   }
@@ -101,9 +111,11 @@ async function sameFile(left, right) {
   } catch { return false; }
 }
 
-async function exportClip({ input, output, start, end, totalDuration, mode = 'precise', tools, signal, onProgress }) {
+async function exportClip({ input, output, start, end, totalDuration, mode = 'precise', overwrite = false, beforeReplace, tools, signal, onProgress }) {
   const range = validateRange(start, end, totalDuration);
-  if (await sameFile(input, output)) throw Object.assign(new Error('Cannot overwrite source'), { code: 'SOURCE_OVERWRITE' });
+  const isSource = await sameFile(input, output);
+  if (isSource && !overwrite) throw Object.assign(new Error('Cannot overwrite source in new-file mode'), { code: 'SOURCE_OVERWRITE' });
+  if (overwrite && !isSource) throw Object.assign(new Error('Overwrite destination must be the source'), { code: 'SOURCE_OVERWRITE' });
   const temporary = path.join(path.dirname(output), `.framecut-${randomUUID()}${path.extname(output)}`);
   try {
     await runTool(tools.ffmpeg, exportArgs(input, temporary, range.start, range.duration, mode), {
@@ -112,6 +124,8 @@ async function exportClip({ input, output, start, end, totalDuration, mode = 'pr
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'CANCELLED' });
     const result = await probe(temporary, tools, { signal });
     if (result.size === 0) throw new Error('Export is empty');
+    if (beforeReplace) await beforeReplace();
+    if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'CANCELLED' });
     await fs.rename(temporary, output);
     onProgress?.(1);
     return { output, ...result };

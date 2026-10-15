@@ -1,6 +1,6 @@
 # Framecut
 
-Простой медиаплеер для Windows с обрезкой видео. Откройте файл, выберите начало и конец фрагмента и сохраните результат. Все операции выполняются локально.
+Простой медиаплеер для Windows с обрезкой видео. Откройте файл, выберите начало и конец и сохраните фрагмент в новый файл или перезапишите исходный. Все операции с видео выполняются локально.
 
 **Русский · English · Deutsch · Español** — переключение языка без перезапуска, с запоминанием выбора. При первом запуске язык определяется по системе; для остальных языков используется английский.
 
@@ -21,7 +21,8 @@ Windows 10/11, 64 бита. Node.js и отдельно установленны
 - Воспроизведение, перемотка, громкость, отключение звука, скорость 0,25–3× и полный экран.
 - Шкала с кадрами, перетаскиваемые границы и точный ввод времени в миллисекундах.
 - Просмотр только выделенного фрагмента перед сохранением.
-- Точная обрезка в MP4 / H.264 / AAC или быстрая обрезка без перекодирования.
+- Быстрая обрезка без перекодирования по умолчанию; точная выбирается в компактном списке.
+- Два режима сохранения: новый файл и перезапись исходного.
 - Прогресс экспорта, отмена, открытие папки с результатом.
 - Запоминание языка, громкости и режима экспорта.
 - Компактное окно, тонкие скроллбары в цвет темы и один основной путь: открыть → выбрать фрагмент → сохранить.
@@ -35,13 +36,13 @@ Windows 10/11, 64 бита. Node.js и отдельно установленны
 
 Portable-версия обнаруживает обновления и открывает страницу нового релиза для ручной замены файла. Автоматическая установка с перезапуском предназначена для версии, установленной через NSIS. Проверка и скачивание обновлений обращаются к GitHub; видеофайлы туда не отправляются.
 
-Точная обрезка перекодирует выбранный фрагмент, сохраняет разрешение и использует CRF 18. Нечётные размеры округляются вниз до чётных, как требуется для YUV 4:2:0. Временная граница ограничена кадрами и аудиосэмплами исходника. Быстрая обрезка сохраняет кодеки и работает по ключевым кадрам: начало и длительность могут отличаться от выделения. Минимальная длина выделения — 0,04 секунды.
+Быстрая обрезка выбрана по умолчанию. Она сохраняет кодеки и работает по ключевым кадрам: начало и длительность могут отличаться от выделения. Точная обрезка перекодирует выбранный фрагмент; при создании нового файла используется MP4 / H.264 / AAC с CRF 18. При перезаписи сохраняется контейнер исходника с совместимыми кодеками: например, VP9/Opus для WebM и H.264/AAC для MP4/MKV/MOV. Нечётные размеры округляются вниз до чётных для YUV 4:2:0. Временная граница ограничена кадрами и аудиосэмплами исходника. Минимальная длина выделения — 0,04 секунды.
 
 Поддерживаются распространённые контейнеры MP4, MKV, MOV, AVI, WebM, WMV и другие форматы, которые читает включённый FFmpeg. Если Chromium не воспроизводит кодек напрямую, приложение создаёт временную совместимую копию для просмотра. Подготовка больших файлов занимает время и место на диске; экспорт всегда выполняется из оригинала. Временные копии удаляются при обычном закрытии приложения. При аварийном завершении они могут остаться в системной временной папке `framecut-*`.
 
 Экспорт включает основную видеодорожку и аудиодорожки. Субтитры, вложения и дополнительные видеодорожки в обрезанный файл не входят. Для HDR и сложных цветовых профилей цветокоррекция при точной обрезке не предусмотрена; используйте быструю обрезку для сохранения исходного потока. Изображение при покадровой перемотке рассчитывается по средней частоте кадров; для видео с переменной частотой позиция может отличаться на кадр.
 
-Оригинал не перезаписывается: результат сначала сохраняется во временный файл рядом с выбранной папкой, проверяется и только затем заменяет согласованный файл назначения. При ошибке или отмене исходник и существующий результат остаются целыми.
+Режим сохранения находится непосредственно у кнопки **Сохранить** под шкалой. В режиме **Новый файл** оригинал не изменяется. В режиме **Перезапись** кнопка называется **Перезаписать**: результат сначала записывается во временный файл рядом с исходником, проверяется и только затем атомарно заменяет его. Плеер освобождает файл перед заменой и открывает уже обрезанное видео. При ошибке или отмене до замены исходник остаётся целым. Успешная перезапись не имеет команды отмены.
 
 ## Управление
 
@@ -86,9 +87,9 @@ Renderer работает в песочнице, без доступа к Node.j
 
 ## English
 
-Framecut is a Windows media player with video trimming. Open a video, drag the in/out handles or enter exact timecodes, preview the selection, and save a new clip. The original is protected. Playback includes seeking, volume, speed control and full screen.
+Framecut is a Windows media player with video trimming. Open a video, drag the in/out handles or enter exact timecodes, preview the selection, and save a new clip or explicitly overwrite the source. Playback includes seeking, volume, speed control and full screen.
 
-Choose **Precise cut** for H.264/AAC MP4 export, or **Fast cut** to retain the original streams with keyframe-based boundaries. Unsupported playback formats are converted to a temporary preview; export uses the original. Audio is retained, while subtitles and attachments are excluded. All processing stays on your computer. The interface supports English, Russian, German and Spanish.
+**Fast** is selected by default and retains the original streams with keyframe-based boundaries. Choose **Precise** for exact re-encoding. Saving has two separate modes: **New file** and **Overwrite**. Overwrites are staged, verified and atomically replaced, then reopened in the player. Unsupported playback formats are converted to a temporary preview; export uses the original. Audio is retained, while subtitles and attachments are excluded. All processing stays on your computer. The interface supports English, Russian, German and Spanish.
 
 The installed app checks for updates on startup and every six hours. Download updates from the sidebar, then install and restart with one click. Release manifests are authenticated with Ed25519 and installers are verified using SHA-256. The portable edition opens the latest release page for manual replacement. Video files are never uploaded.
 

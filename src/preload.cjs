@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('framecut', {
   openDropped: file => invoke('open-dropped', webUtils.getPathForFile(file)),
   preparePreview: id => invoke('prepare-preview', id),
   exportClip: options => invoke('export-clip', options),
+  releaseSource: () => invoke('release-source'),
   cancelExport: () => invoke('cancel-export'),
   cancelOpen: () => invoke('cancel-open'),
   setLanguage: language => invoke('set-language', language),
