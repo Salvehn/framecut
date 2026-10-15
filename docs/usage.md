@@ -8,16 +8,24 @@ The opening panel lists the same file types as the file picker. A compact marque
 
 | Mode | Behavior |
 | --- | --- |
-| Fast, the default | Copies video and audio without re-encoding. Starts at a keyframe; the actual start and duration may differ from the selected boundaries. |
-| Precise | Re-encodes the selection. A new file uses MP4 / H.264 / AAC, CRF 18. Overwrite keeps the source container with compatible codecs. |
+| Original quality, the default | Copies video and audio without re-encoding. Starts at a keyframe; the actual start and duration may differ from the selected boundaries. |
+| Frame accurate | Re-encodes the selection. A new file uses MP4 / H.264 / AAC, CRF 18. Overwrite keeps the source container with compatible codecs. |
 
 Timecodes accept `HH:MM:SS.mmm`, `MM:SS.mmm`, or seconds. Minimum selection length: 0.04 seconds. Exact boundaries are limited by video frames and audio samples. Odd dimensions are rounded down to even values for YUV 4:2:0.
 
+The speed control applies to playback, file exports, and temporary sharing clips. At any speed other than 1×, Framecut automatically re-encodes video and audio with the chosen tempo and preserves audio pitch. The displayed export duration reflects that speed. Returning to 1× restores the chosen cut mode. After overwriting the source, playback returns to 1× because the speed is already included in the new video.
+
+## Timeline zoom
+
+Use **− / +** to zoom around the playhead, or **Ctrl + mouse wheel** over the exact segment you want to inspect. The middle scale button shows the current zoom and returns to the full video. Zoom ranges from 1× to 32×. Scroll the enlarged timeline with the wheel, trackpad, or horizontal scrollbar. Zooming and scrolling do not change the selection or loop boundaries.
+
+Hold either trim handle still for a moment to temporarily magnify the surrounding frames. Continue dragging for finer control; release to restore the previous scale and scroll position. Moving normally trims without automatic zoom. The ruler and visible thumbnails update to the current scale; reduced-motion settings remove the zoom animation.
+
 The primary video stream and audio tracks are retained; subtitles, attachments, and additional video streams are excluded. Precise HDR color conversion is not implemented. Fast cuts preserve the original encoded video. Frame stepping uses average frame rate, so variable-frame-rate video can differ by a frame.
 
-## Save modes
+## Export modes
 
-Hover **Save** to reveal **Save** and **Save as…**. **Save as…** opens the save dialog and protects the source. **Save** creates a temporary file beside the source, verifies it, releases playback readers, and atomically replaces the source. Errors or cancellation before replacement preserve the original. A successful overwrite cannot be undone.
+Hover **Export** to reveal **Export** and **Export as…**. **Export as…** opens the file dialog and protects the source. **Export** creates a temporary file beside the source, verifies it, releases playback readers, and atomically replaces the source. Errors or cancellation before replacement preserve the original. A successful overwrite cannot be undone.
 
 ## Keyboard shortcuts
 
@@ -31,14 +39,14 @@ Hover **Save** to reveal **Save** and **Save as…**. **Save as…** opens the s
 | Comma / period | Previous / next frame |
 | F / Esc | Enter / leave full screen |
 | M | Mute |
-| Ctrl+S | Save selection over the source |
-| Ctrl+Shift+S | Save selection as a new file |
+| Ctrl+S | Export selection over the source |
+| Ctrl+Shift+S | Export selection as a new file |
 
 Focus a range handle with Tab; use Left/Right to move by a frame, Shift for one second, and Home/End for the video edge. Physical key codes keep letter shortcuts usable with the Russian keyboard layout.
 
 ## Share without saving manually
 
-Click the share icon beside **Save**. Framecut prepares the selected range as a temporary MP4 and opens the sharing dialog, without a Save dialog or changes to the source. Compatible H.264/AAC clips use the selected fast mode; other formats are converted to H.264/AAC for messenger compatibility. Reopening the same selection reuses its prepared clip.
+Click the share icon beside **Export**. Framecut prepares the selected range at the current speed as a temporary MP4 and opens the sharing dialog, without a file dialog or changes to the source. At 1×, compatible H.264/AAC clips use the selected fast mode; other formats and changed speeds are converted to H.264/AAC for messenger compatibility. Reopening the same selection, speed, and cut mode reuses its prepared clip.
 
 - **Telegram:** hands the file to Telegram Desktop's recipient picker using its [documented file argument](https://github.com/telegramdesktop/tdesktop/wiki/Command-Line-Switches). If no compatible desktop installation is found, the file is copied for pasting instead.
 - **Discord:** copies the actual file to the Windows clipboard and opens Discord. Choose a chat and paste with Ctrl+V, or drag the file tile into the chat. This does not expose Discord's mobile Share To picker. The documented [Share Moment API](https://docs.discord.com/developers/activities/development-guides/user-actions#open-share-moment-dialog) is for authenticated Discord Activities and Discord CDN URLs.

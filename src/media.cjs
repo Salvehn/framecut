@@ -58,7 +58,7 @@ async function probe(filePath, tools, options = {}) {
   const video = data.streams?.find(stream => stream.codec_type === 'video' && !stream.disposition?.attached_pic);
   if (!video) throw Object.assign(new Error('No video stream'), { code: 'NO_VIDEO' });
   const duration = Number(data.format?.duration || video.duration);
-  if (!Number.isFinite(duration) || duration < MIN_CLIP) throw Object.assign(new Error('Invalid video duration'), { code: 'NO_DURATION' });
+  if (!Number.isFinite(duration) || duration <= 0) throw Object.assign(new Error('Invalid video duration'), { code: 'NO_DURATION' });
   const [numerator, denominator] = (video.avg_frame_rate || video.r_frame_rate || '0/1').split('/').map(Number);
   return {
     duration, width: video.width || 0, height: video.height || 0,
@@ -78,9 +78,25 @@ function validateRange(start, end, duration) {
   return { start, end: Math.min(end, duration), duration: Math.min(end, duration) - start };
 }
 
-function exportArgs(input, output, start, duration, mode) {
-  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-ss', start.toFixed(6), '-i', input,
-    '-t', duration.toFixed(6), '-map', '0:v:0', '-map', '0:a?', '-sn', '-dn'];
+function validateSpeed(speed = 1) {
+  if (typeof speed !== 'number' || !Number.isFinite(speed) || speed < 0.25 || speed > 3) {
+    throw Object.assign(new Error('Invalid playback speed'), { code: 'INVALID_SPEED' });
+  }
+  return speed;
+}
+
+function exportMode(mode, speed = 1) {
+  validateSpeed(speed);
+  if (!['copy', 'precise'].includes(mode)) throw Object.assign(new Error('Unknown export mode'), { code: 'INVALID_MODE' });
+  return speed === 1 ? mode : 'precise';
+}
+
+function exportArgs(input, output, start, duration, mode, speed = 1) {
+  mode = exportMode(mode, speed);
+  const args = ['-hide_banner', '-loglevel', 'error', '-nostdin', '-y', '-ss', start.toFixed(6)];
+  // Limit the source before retiming, so a faster export cannot include footage beyond the selection.
+  if (speed !== 1) args.push('-t', duration.toFixed(6));
+  args.push('-i', input, '-t', (duration / speed).toFixed(6), '-map', '0:v:0', '-map', '0:a?', '-sn', '-dn');
   if (mode === 'copy') {
     args.push('-c', 'copy', '-avoid_negative_ts', 'make_zero');
   } else if (mode === 'precise') {
@@ -93,7 +109,14 @@ function exportArgs(input, output, start, duration, mode) {
       '.mpg': ['-c:v', 'mpeg2video', '-q:v', '2', '-c:a', 'mp2', '-b:a', '192k'],
       '.mpeg': ['-c:v', 'mpeg2video', '-q:v', '2', '-c:a', 'mp2', '-b:a', '192k']
     }[extension] || ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-c:a', 'aac', '-b:a', '192k'];
-    args.push(...profile, '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2');
+    const videoFilters = ['scale=trunc(iw/2)*2:trunc(ih/2)*2'];
+    if (speed !== 1) {
+      videoFilters.unshift(`setpts=(PTS-STARTPTS)/${speed}`);
+      // Keep each atempo stage within 0.5–2 to preserve audio quality at both extremes.
+      const tempo = speed < 0.5 || speed > 2 ? `atempo=${Math.sqrt(speed)},atempo=${Math.sqrt(speed)}` : `atempo=${speed}`;
+      args.push('-af', `asetpts=PTS-STARTPTS,${tempo}`);
+    }
+    args.push(...profile, '-pix_fmt', 'yuv420p', '-vf', videoFilters.join(','));
     if (['.mp4', '.mov', '.m4v', '.3gp'].includes(extension)) args.push('-movflags', '+faststart');
     if (['.ts', '.mts', '.m2ts'].includes(extension)) args.push('-f', 'mpegts');
   } else {
@@ -111,15 +134,16 @@ async function sameFile(left, right) {
   } catch { return false; }
 }
 
-async function exportClip({ input, output, start, end, totalDuration, mode = 'precise', overwrite = false, beforeReplace, tools, signal, onProgress }) {
+async function exportClip({ input, output, start, end, totalDuration, mode = 'precise', speed = 1, overwrite = false, beforeReplace, tools, signal, onProgress }) {
   const range = validateRange(start, end, totalDuration);
+  mode = exportMode(mode, speed);
   const isSource = await sameFile(input, output);
   if (isSource && !overwrite) throw Object.assign(new Error('Cannot overwrite source in new-file mode'), { code: 'SOURCE_OVERWRITE' });
   if (overwrite && !isSource) throw Object.assign(new Error('Overwrite destination must be the source'), { code: 'SOURCE_OVERWRITE' });
   const temporary = path.join(path.dirname(output), `.framecut-${randomUUID()}${path.extname(output)}`);
   try {
-    await runTool(tools.ffmpeg, exportArgs(input, temporary, range.start, range.duration, mode), {
-      signal, onProgress: seconds => onProgress?.(Math.min(0.99, Math.max(0, seconds / range.duration)))
+    await runTool(tools.ffmpeg, exportArgs(input, temporary, range.start, range.duration, mode, speed), {
+      signal, onProgress: seconds => onProgress?.(Math.min(0.99, Math.max(0, seconds / (range.duration / speed))))
     });
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'CANCELLED' });
     const result = await probe(temporary, tools, { signal });
@@ -157,4 +181,4 @@ function nativePreviewSupported(filePath, info) {
     (!info.audioCodec || ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'pcm_s16le'].includes(info.audioCodec));
 }
 
-module.exports = { MIN_CLIP, toolPaths, runTool, probe, validateRange, exportArgs, exportClip, sameFile, createPreview, nativePreviewSupported };
+module.exports = { MIN_CLIP, toolPaths, runTool, probe, validateRange, validateSpeed, exportMode, exportArgs, exportClip, sameFile, createPreview, nativePreviewSupported };

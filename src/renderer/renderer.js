@@ -9,7 +9,7 @@ const { clampToSelection, loopsSelection, playbackTime } = FramecutPlayback;
 const video = $('video');
 const state = { language: 'en', media: null, start: 0, end: 0, busy: false, exporting: false,
   previewing: false, converting: false, mode: 'copy', replacing: false, recent: [], fallbackTried: false,
-  statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, version: '', update: { status: 'idle' }, share: null, sharing: false };
+  statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, version: '', update: { status: 'idle' }, share: null, sharing: false, zoom: 1 };
 const t = (key, values) => translate(state.language, key, values);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let playbackRequested = false;
@@ -95,6 +95,8 @@ function updateEnabled() {
   $('open-top').disabled = state.busy || state.exporting;
   $('open-center').disabled = state.busy || state.exporting;
   $('timeline-track').classList.toggle('disabled', !available);
+  $('speed').disabled = !available;
+  updateZoomControls();
   renderRecent();
 }
 
@@ -108,6 +110,9 @@ async function openRequest(request) {
 }
 
 async function useMedia(data) {
+  finishTimelineDrag?.();
+  cancelAnimationFrame(zoomFrame);
+  state.zoom = 1; $('timeline-content').style.width = '100%'; $('timeline-viewport').scrollLeft = 0;
   pausePlayback();
   state.thumbnailAbort?.abort();
   state.media = data;
@@ -196,7 +201,8 @@ function updateSelection() {
   const right = duration ? state.end / duration * 100 : 100;
   $('in-time').value = formatTime(state.start, true);
   $('out-time').value = formatTime(state.end, true);
-  $('clip-duration').textContent = formatTime(state.end - state.start, true);
+  const speed = Number($('speed').value);
+  $('clip-duration').textContent = formatTime((state.end - state.start) / speed, true);
   $('timeline-tag').textContent = formatTime(state.end - state.start, true);
   $('selection-times').textContent = `${formatTime(state.start, true)} — ${formatTime(state.end, true)}`;
   $('seek').min = state.start;
@@ -213,10 +219,89 @@ function updateSelection() {
     $(id).setAttribute('aria-valuenow', String(time));
     $(id).setAttribute('aria-valuetext', formatTime(time, true));
   }
-  $('ruler').querySelectorAll('span').forEach((span, index) => { span.textContent = formatTime(duration * index / 5).replace(/^00:/, ''); });
-  title($('cut-mode'), state.mode === 'copy' ? 'fastHint' : 'preciseHint');
+  updateTimelineRuler();
+  $('cut-mode').value = speed === 1 ? state.mode : 'precise';
+  $('cut-mode').disabled = speed !== 1;
+  title($('cut-mode'), speed !== 1 ? 'speedExportHint' : state.mode === 'copy' ? 'fastHint' : 'preciseHint');
   $('export').disabled = !state.media || state.busy || state.exporting || state.end - state.start < 0.0399;
 }
+
+const MAX_ZOOM = 32;
+let zoomFrame = 0;
+let finishTimelineDrag;
+let thumbnailTimer;
+function scheduleThumbnails() {
+  clearTimeout(thumbnailTimer);
+  thumbnailTimer = setTimeout(() => {
+    if (state.media && video.readyState > 0 && !state.replacing) drawThumbnails(video.src);
+  }, 160);
+}
+$('timeline-viewport').addEventListener('scroll', scheduleThumbnails);
+window.addEventListener('resize', scheduleThumbnails);
+function updateZoomControls() {
+  const available = Boolean(state.media) && !state.busy && !state.exporting;
+  $('zoom-in').disabled = !available || state.zoom >= MAX_ZOOM - 0.01;
+  $('zoom-out').disabled = !available || state.zoom <= 1.001;
+  $('zoom-reset').disabled = !available || state.zoom <= 1.001;
+  $('zoom-reset').textContent = `${Number(state.zoom.toFixed(1))}×`;
+}
+function updateTimelineRuler() {
+  const duration = state.media?.duration || 0;
+  const divisions = Math.ceil(5 * state.zoom);
+  const ruler = $('ruler');
+  if (ruler.children.length !== divisions + 1) ruler.replaceChildren(...Array.from({ length: divisions + 1 }, () => document.createElement('span')));
+  [...ruler.children].forEach((span, index) => { span.textContent = formatTime(duration * index / divisions, duration / divisions < 1).replace(/^00:/, ''); });
+}
+function animateTimelineZoom(target, anchor, restoreScroll) {
+  if (!state.media) return;
+  cancelAnimationFrame(zoomFrame);
+  const viewport = $('timeline-viewport');
+  const initial = state.zoom, initialScroll = viewport.scrollLeft;
+  const targetZoom = clamp(target, 1, MAX_ZOOM);
+  const started = performance.now();
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const tick = now => {
+    const progress = reducedMotion ? 1 : clamp((now - started) / 220, 0, 1);
+    const eased = 1 - (1 - progress) ** 3;
+    state.zoom = initial + (targetZoom - initial) * eased;
+    $('timeline-content').style.width = `${state.zoom * 100}%`;
+    if (restoreScroll !== undefined) viewport.scrollLeft = initialScroll + (restoreScroll - initialScroll) * eased;
+    else {
+      const position = typeof anchor === 'function' ? anchor() : anchor;
+      viewport.scrollLeft = 7 + position.time / state.media.duration * $('timeline-track').clientWidth - position.x;
+    }
+    updateTimelineRuler(); updateZoomControls();
+    if (progress < 1) zoomFrame = requestAnimationFrame(tick);
+    else { zoomFrame = 0; scheduleThumbnails(); }
+  };
+  zoomFrame = requestAnimationFrame(tick);
+}
+function zoomAroundPlayhead(factor) {
+  if (!state.media || state.busy || state.exporting) return;
+  const viewport = $('timeline-viewport');
+  const track = $('timeline-track').getBoundingClientRect();
+  const time = video.currentTime || 0;
+  const x = clamp(track.left + time / state.media.duration * track.width - viewport.getBoundingClientRect().left, 14, viewport.clientWidth - 14);
+  animateTimelineZoom(state.zoom * factor, { time, x });
+}
+$('zoom-in').addEventListener('click', () => zoomAroundPlayhead(2));
+$('zoom-out').addEventListener('click', () => zoomAroundPlayhead(0.5));
+$('zoom-reset').addEventListener('click', () => animateTimelineZoom(1, null, 0));
+$('timeline-viewport').addEventListener('wheel', event => {
+  if (!state.media || state.busy || state.exporting) return;
+  const viewport = $('timeline-viewport');
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault();
+    if (finishTimelineDrag) return;
+    const track = $('timeline-track').getBoundingClientRect();
+    const time = clamp((event.clientX - track.left) / track.width, 0, 1) * state.media.duration;
+    const x = clamp(event.clientX - viewport.getBoundingClientRect().left, 0, viewport.clientWidth);
+    animateTimelineZoom(state.zoom * (event.deltaY < 0 ? 1.5 : 1 / 1.5), { time, x });
+  } else if (state.zoom > 1) {
+    event.preventDefault();
+    viewport.scrollLeft += (Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY) * (event.deltaMode === 1 ? 20 : event.deltaMode === 2 ? viewport.clientWidth : 1);
+  }
+}, { passive: false });
 
 function changeBoundary(boundary, value, seekTo = false) {
   if (!state.media || !Number.isFinite(value)) return;
@@ -274,7 +359,7 @@ async function togglePlayback() {
   if (!state.media || state.busy || state.exporting) return;
   if (video.paused) {
     if (video.ended || video.currentTime < state.start || video.currentTime >= state.end - 0.015) seek(state.start);
-    try { await video.play(); } catch { toast('playbackError', true); }
+    try { await video.play(); } catch (error) { if (error.name !== 'AbortError') toast('playbackError', true); }
   } else { pausePlayback(); state.previewing = false; }
   updateTransport();
 }
@@ -282,6 +367,19 @@ async function togglePlayback() {
 async function drawThumbnails(url) {
   state.thumbnailAbort?.abort();
   const controller = new AbortController(); state.thumbnailAbort = controller;
+  const duration = state.media.duration;
+  const count = Math.ceil(10 * state.zoom);
+  const filmstrip = $('filmstrip');
+  if (filmstrip.children.length !== count) {
+    filmstrip.replaceChildren(...Array.from({ length: count }, () => document.createElement('span')));
+  }
+  const bounds = $('timeline-track').getBoundingClientRect();
+  const view = $('timeline-viewport').getBoundingClientRect();
+  const first = Math.max(0, Math.floor((view.left - bounds.left) / bounds.width * count) - 1);
+  const last = Math.min(count - 1, Math.ceil((view.right - bounds.left) / bounds.width * count));
+  const pending = [];
+  for (let index = first; index <= last; index++) if (!filmstrip.children[index].firstChild) pending.push(index);
+  if (!pending.length) return;
   const thumbnailVideo = document.createElement('video');
   thumbnailVideo.muted = true; thumbnailVideo.preload = 'auto';
   const waitEvent = (event, action) => new Promise((resolve, reject) => {
@@ -296,9 +394,7 @@ async function drawThumbnails(url) {
   });
   try {
     await waitEvent('loadeddata', () => { thumbnailVideo.src = url; thumbnailVideo.load(); });
-    const duration = state.media.duration;
-    const count = 10;
-    for (let index = 0; index < count; index++) {
+    for (const index of pending) {
       if (controller.signal.aborted) return;
       const time = Math.min(duration - 0.02, duration * (index + 0.5) / count);
       await waitEvent('seeked', () => { thumbnailVideo.currentTime = time; });
@@ -308,7 +404,7 @@ async function drawThumbnails(url) {
       const ratio = Math.max(160 / thumbnailVideo.videoWidth, 90 / thumbnailVideo.videoHeight);
       const w = thumbnailVideo.videoWidth * ratio, h = thumbnailVideo.videoHeight * ratio;
       context.drawImage(thumbnailVideo, (160 - w) / 2, (90 - h) / 2, w, h);
-      $('filmstrip').append(canvas);
+      filmstrip.children[index].replaceChildren(canvas);
     }
   } catch { /* Thumbnails are optional; playback and trimming remain available. */ }
   finally { thumbnailVideo.removeAttribute('src'); thumbnailVideo.load(); }
@@ -318,11 +414,12 @@ async function shareSelection() {
   if (!state.media || state.busy || state.exporting) return;
   document.activeElement?.blur();
   pausePlayback(); state.previewing = false;
-  const key = `${state.media.id}:${state.start}:${state.end}:${state.mode}`;
+  const speed = Number($('speed').value);
+  const key = `${state.media.id}:${state.start}:${state.end}:${state.mode}:${speed}`;
   state.sharing = true; state.exporting = true; updateEnabled(); updateTransport();
   try {
     if (state.share?.key !== key) {
-      const clip = unwrap(await api.prepareShare({ id: state.media.id, start: state.start, end: state.end, mode: state.mode }));
+      const clip = unwrap(await api.prepareShare({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, speed }));
       state.share = { ...clip, key };
     }
     $('export-dialog').close();
@@ -359,10 +456,14 @@ async function exportSelection(saveMode = 'overwrite') {
   pausePlayback(); state.previewing = false; state.exporting = true;
   updateEnabled(); updateTransport();
   try {
-    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, saveMode }));
+    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, speed: Number($('speed').value), saveMode }));
     if (result.cancelled) { $('export-dialog').close(); return; }
     state.replacing = false;
-    if (result.updatedMedia) { state.exporting = false; await useMedia(result.updatedMedia); }
+    if (result.updatedMedia) {
+      // The exported speed is already baked into the source; avoid applying it a second time.
+      $('speed').value = '1'; video.playbackRate = 1;
+      state.exporting = false; await useMedia(result.updatedMedia);
+    }
     $('export-title').textContent = t('complete');
     $('export-subtitle').textContent = `${result.name} · ${formatTime(result.duration, true)} · ${formatSize(result.size, state.language)}`;
     $('export-progress-wrap').hidden = true;
@@ -394,7 +495,7 @@ $('mute').addEventListener('click', () => {
   else video.muted = !video.muted;
   updateTransport();
 });
-$('speed').addEventListener('change', event => { video.playbackRate = Number(event.target.value); });
+$('speed').addEventListener('change', event => { video.playbackRate = Number(event.target.value); updateSelection(); });
 $('fullscreen').addEventListener('click', () => api.windowControl('fullscreen'));
 for (const action of ['minimize', 'maximize']) $(action).addEventListener('click', () => api.windowControl(action));
 $('close-window').addEventListener('click', () => api.windowControl('close'));
@@ -412,12 +513,12 @@ for (const [id, boundary] of [['in-time', 'start'], ['out-time', 'end']]) {
   });
   $(id).addEventListener('keydown', event => { if (event.key === 'Enter') event.target.blur(); });
 }
-$('reset').addEventListener('click', () => { state.start = 0; state.end = state.media.duration; state.previewing = false; updateSelection(); updateTransport(); });
+$('reset').addEventListener('click', () => { state.start = 0; state.end = state.media.duration; state.previewing = false; animateTimelineZoom(1, null, 0); updateSelection(); updateTransport(); });
 $('preview').addEventListener('click', async () => {
   if (!video.paused && selectionLoops()) { pausePlayback(); state.previewing = false; }
   else {
     state.previewing = true; seek(state.start);
-    try { await video.play(); } catch { state.previewing = false; toast('playbackError', true); }
+    try { await video.play(); } catch (error) { state.previewing = false; if (error.name !== 'AbortError') toast('playbackError', true); }
   }
   updateTransport();
 });
@@ -494,19 +595,46 @@ $('language').addEventListener('change', async event => {
 for (const [id, boundary] of [['in-handle', 'start'], ['out-handle', 'end']]) {
   const handle = $(id);
   let dragging = false;
+  let holdTimer, lastX, holdX, offset, previousView;
+  const schedulePrecision = () => {
+    clearTimeout(holdTimer);
+    holdX = lastX;
+    holdTimer = setTimeout(() => {
+      if (!dragging || previousView) return;
+      previousView = { zoom: state.zoom, scroll: $('timeline-viewport').scrollLeft };
+      $('timeline-viewport').classList.add('precision');
+      animateTimelineZoom(state.zoom * 4, () => ({ time: state[boundary], x: lastX - offset - $('timeline-viewport').getBoundingClientRect().left }));
+    }, 550);
+  };
+  const finish = () => {
+    if (!dragging) return;
+    dragging = false; clearTimeout(holdTimer); finishTimelineDrag = null;
+    $('timeline-track').classList.remove('dragging'); $('timeline-viewport').classList.remove('precision');
+    if (previousView) { animateTimelineZoom(previousView.zoom, null, previousView.scroll); previousView = null; }
+  };
   handle.addEventListener('pointerdown', event => {
-    if (handle.disabled) return;
-    event.stopPropagation(); dragging = true; pausePlayback(); state.previewing = false;
+    if (handle.disabled || event.button !== 0) return;
+    finishTimelineDrag?.(); cancelAnimationFrame(zoomFrame);
+    event.preventDefault(); event.stopPropagation(); dragging = true; pausePlayback(); state.previewing = false;
+    lastX = event.clientX; offset = lastX - (handle.getBoundingClientRect().left + handle.offsetWidth / 2);
+    previousView = null; finishTimelineDrag = finish; schedulePrecision();
     $('timeline-track').classList.add('dragging');
     handle.setPointerCapture(event.pointerId);
   });
   handle.addEventListener('pointermove', event => {
     if (!dragging) return;
+    lastX = event.clientX;
+    if (!previousView && Math.abs(lastX - holdX) > 3) schedulePrecision();
+    const viewport = $('timeline-viewport');
+    const view = viewport.getBoundingClientRect();
+    if (lastX < view.left + 20) viewport.scrollLeft -= 12;
+    else if (lastX > view.right - 20) viewport.scrollLeft += 12;
     const bounds = $('timeline-track').getBoundingClientRect();
-    changeBoundary(boundary, (event.clientX - bounds.left) / bounds.width * state.media.duration, true);
+    changeBoundary(boundary, (event.clientX - offset - bounds.left) / bounds.width * state.media.duration, true);
   });
-  handle.addEventListener('pointerup', () => { dragging = false; $('timeline-track').classList.remove('dragging'); });
-  handle.addEventListener('pointercancel', () => { dragging = false; $('timeline-track').classList.remove('dragging'); });
+  handle.addEventListener('pointerup', finish);
+  handle.addEventListener('pointercancel', finish);
+  handle.addEventListener('lostpointercapture', finish);
   handle.addEventListener('keydown', event => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
@@ -529,7 +657,7 @@ video.addEventListener('pause', () => { if (!video.ended) playbackRequested = fa
 video.addEventListener('ended', async () => {
   if (playbackRequested && selectionLoops() && !state.busy && !state.exporting && !state.replacing) {
     seek(state.start);
-    try { await video.play(); } catch { state.previewing = false; toast('playbackError', true); }
+    try { await video.play(); } catch (error) { state.previewing = false; if (error.name !== 'AbortError') toast('playbackError', true); }
   } else { playbackRequested = false; state.previewing = false; }
   updateTransport();
 });

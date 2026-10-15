@@ -12,13 +12,13 @@ function shareExportMode(info, mode) {
   if (!['copy', 'precise'].includes(mode)) throw new Error('Invalid share mode');
   return mode === 'copy' && info.codec === 'h264' && (!info.hasAudio || info.audioCodec === 'aac') ? 'copy' : 'precise';
 }
-async function prepareShare({ directory, input, info, start, end, mode, tools, signal, onProgress, exportClip }) {
+async function prepareShare({ directory, input, info, start, end, mode, speed = 1, tools, signal, onProgress, exportClip }) {
   await fs.mkdir(directory, { recursive: true });
   const id = randomUUID();
   const output = path.join(directory, `clip-${id}.mp4`);
   try {
     const result = await exportClip({ input, output, start, end, totalDuration: info.duration,
-      mode: shareExportMode(info, mode), tools, signal, onProgress });
+      mode: shareExportMode(info, mode), speed, tools, signal, onProgress });
     return { id, path: output, name: 'Framecut.mp4', size: result.size, duration: result.duration };
   } catch (error) { await fs.rm(output, { force: true }).catch(() => {}); throw error; }
 }

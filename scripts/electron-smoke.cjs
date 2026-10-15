@@ -165,7 +165,55 @@ module.exports = async ({ window, openMedia, tools }) => {
     await evaluate('video.playbackRate = 1; changeBoundary("end", 4.75); changeBoundary("start", 1.25); seek(1.25)');
     console.log('PASS repeated selection loops at 3x, normal Play looping, pause, clamped timeline/keyboard seeks and moved bounds');
     console.log('PASS looping at source end while minimized, paused end-frame inspection and normal playback after reset');
-    await waitFor('document.getElementById("filmstrip").children.length >= 8');
+    await evaluate('document.getElementById("zoom-in").click()');
+    await waitFor('state.zoom === 2');
+    assert.ok(await evaluate('document.getElementById("timeline-viewport").scrollWidth > document.getElementById("timeline-viewport").clientWidth * 1.9'));
+    const wheelAnchor = await evaluate(`(() => {
+      const viewport = document.getElementById('timeline-viewport');
+      viewport.scrollLeft = viewport.clientWidth * .35;
+      const view = viewport.getBoundingClientRect(), track = document.getElementById('timeline-track').getBoundingClientRect();
+      const x = view.left + view.width * .6;
+      return { x, y: track.top + 15, time: (x - track.left) / track.width * state.media.duration, start: state.start, end: state.end };
+    })()`);
+    await evaluate(`document.getElementById('timeline-viewport').dispatchEvent(new WheelEvent('wheel', { ctrlKey: true, deltaY: -100, clientX: ${wheelAnchor.x}, bubbles: true, cancelable: true }))`);
+    await waitFor('state.zoom === 3');
+    const anchoredTime = await evaluate(`(() => { const bounds = document.getElementById('timeline-track').getBoundingClientRect(); return (${wheelAnchor.x} - bounds.left) / bounds.width * state.media.duration; })()`);
+    assert.ok(Math.abs(anchoredTime - wheelAnchor.time) < .01);
+    assert.equal(await evaluate('state.start'), wheelAnchor.start); assert.equal(await evaluate('state.end'), wheelAnchor.end);
+    const scrollBefore = await evaluate('document.getElementById("timeline-viewport").scrollLeft');
+    await evaluate('document.getElementById("timeline-viewport").dispatchEvent(new WheelEvent("wheel", { deltaY: 80, cancelable: true }))');
+    assert.ok(await evaluate('document.getElementById("timeline-viewport").scrollLeft') > scrollBefore);
+    await evaluate(`(() => {
+      const view = document.getElementById('timeline-viewport').getBoundingClientRect();
+      const bounds = document.getElementById('timeline-track').getBoundingClientRect();
+      document.getElementById('timeline-track').dispatchEvent(new PointerEvent('pointerdown', { clientX: view.left + view.width / 2, bubbles: true }));
+      window.zoomExpectedSeek = Math.max(state.start, Math.min(state.end, (view.left + view.width / 2 - bounds.left) / bounds.width * state.media.duration));
+    })()`);
+    assert.ok(Math.abs(await evaluate('video.currentTime - zoomExpectedSeek')) < .001);
+    await evaluate('document.getElementById("zoom-reset").click()');
+    await waitFor('state.zoom === 1');
+    // Trusted events stay inside the isolated Electron test window and do not move the system cursor.
+    window.webContents.debugger.attach('1.3');
+    const handlePoint = await evaluate('(() => { const bounds = document.getElementById("in-handle").getBoundingClientRect(); return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }; })()');
+    await evaluate(`(() => { window.trimEvents = []; for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) document.getElementById('in-handle').addEventListener(type, event => trimEvents.push({ type, x: event.clientX, buttons: event.buttons, zoom: state.zoom, start: state.start, dragging: Boolean(finishTimelineDrag) })); })()`);
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', ...handlePoint });
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', buttons: 1, clickCount: 1, ...handlePoint });
+    await waitFor('state.zoom === 4');
+    assert.ok(Math.abs(await evaluate('state.start') - 1.25) < .001, 'Holding a handle must not change its time');
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', button: 'left', buttons: 1, x: handlePoint.x + 20, y: handlePoint.y });
+    await waitFor('state.start > 1.25', 2000);
+    const preciseStart = await evaluate('state.start');
+    assert.ok(preciseStart > 1.25 && preciseStart < 1.4, `Precise drag: ${preciseStart}`);
+    await waitFor('!video.seeking');
+    await new Promise(resolve => setTimeout(resolve, 220));
+    await fs.writeFile(path.join(directory, 'timeline-zoom.png'), (await window.webContents.capturePage()).toPNG());
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', buttons: 0, clickCount: 1, x: handlePoint.x + 20, y: handlePoint.y });
+    await waitFor('state.zoom === 1');
+    assert.equal(await evaluate('state.start'), preciseStart);
+    window.webContents.debugger.detach();
+    await evaluate('changeBoundary("start", 1.25); seek(1.25)');
+    console.log('PASS manual timeline zoom around cursor, scrolling, accurate zoomed seek, held-handle precision zoom and restored view');
+    await waitFor('document.querySelectorAll("#filmstrip canvas").length >= 8');
     const result = await require('../src/media.cjs').exportClip({ input: path.join(directory, 'sample.mp4'), output: path.join(directory, 'export.mp4'),
       start: 1.25, end: 4.75, totalDuration: 8, mode: 'precise', tools });
     assert.ok(Math.abs(result.duration - 3.5) < 0.08); assert.equal(result.hasAudio, true);
@@ -179,8 +227,30 @@ module.exports = async ({ window, openMedia, tools }) => {
     await fs.writeFile(path.join(directory, 'share-dialog.png'), (await window.webContents.capturePage()).toPNG());
     await evaluate('(async () => { document.getElementById("share-dialog").close(); await shareSelection(); })()');
     assert.equal(await evaluate('state.share.id'), shared.id);
+    await evaluate('(async () => { document.getElementById("share-dialog").close(); document.getElementById("speed").value = "2"; document.getElementById("speed").dispatchEvent(new Event("change")); await shareSelection(); })()');
+    const fasterShare = await evaluate('state.share');
+    assert.notEqual(fasterShare.id, shared.id); assert.ok(Math.abs(fasterShare.duration - 1.75) < .08);
+    assert.equal(await evaluate('document.getElementById("cut-mode").disabled'), true);
+    assert.equal(await evaluate('document.getElementById("clip-duration").textContent'), '00:00:01.750');
+    await evaluate('document.getElementById("speed").value = "1"; document.getElementById("speed").dispatchEvent(new Event("change"))');
+    assert.equal(await evaluate('document.getElementById("cut-mode").disabled'), false);
     await evaluate('document.getElementById("share-dialog").close(); state.mode = "copy"');
     console.log('PASS sharing selected clip without Save dialog, source preservation and prepared-clip reuse');
+    const { dialog } = require('electron');
+    const originalSaveDialog = dialog.showSaveDialog;
+    const exportAsPath = path.join(directory, 'export-as.mp4');
+    let suggestedExtension;
+    dialog.showSaveDialog = async (_window, options) => { suggestedExtension = path.extname(options.defaultPath); return { canceled: false, filePath: exportAsPath }; };
+    try {
+      await evaluate('(async () => { state.mode = "copy"; document.getElementById("speed").value = "1.25"; document.getElementById("speed").dispatchEvent(new Event("change")); await exportSelection("new"); })()');
+      const newFile = await require('../src/media.cjs').probe(exportAsPath, tools);
+      assert.ok(Math.abs(newFile.duration - 2.8) < .08); assert.equal(suggestedExtension, '.mp4');
+      assert.equal((await fs.readFile(path.join(directory, 'sample.mp4'))).equals(sourceBeforeShare), true);
+      assert.equal(await evaluate('video.playbackRate'), 1.25);
+      await evaluate('document.getElementById("export-dialog").close(); document.getElementById("speed").value = "1"; document.getElementById("speed").dispatchEvent(new Event("change"))');
+    } finally { dialog.showSaveDialog = originalSaveDialog; }
+    console.log('PASS export-as via renderer IPC with baked speed, source protection and speed-aware share cache');
+    await new Promise(resolve => setTimeout(resolve, 220));
     await fs.writeFile(path.join(directory, 'loaded.png'), (await window.webContents.capturePage()).toPNG());
     for (const language of ['ru', 'en', 'de', 'es']) {
       window.setSize(960, 680);
@@ -191,7 +261,10 @@ module.exports = async ({ window, openMedia, tools }) => {
         const button = document.getElementById('export').getBoundingClientRect();
         const fields = document.getElementById('trim-fields').getBoundingClientRect();
         const controls = document.querySelector('.save-controls').getBoundingClientRect();
-        return button.right <= innerWidth && button.bottom <= innerHeight && fields.right <= controls.left && bar.bottom <= innerHeight;
+        const actions = document.querySelector('.timeline-actions').getBoundingClientRect();
+        const heading = document.querySelector('.timeline-heading h2').getBoundingClientRect();
+        const selected = document.querySelector('#cut-mode selectedcontent');
+        return button.right <= innerWidth && button.bottom <= innerHeight && fields.right <= controls.left && bar.bottom <= innerHeight && heading.right < actions.left && selected.querySelector('span').textContent.length > 0 && getComputedStyle(selected.querySelector('small')).display === 'none';
       })()`);
       assert.equal(fits, true, `Compact layout: ${language}`);
     }
@@ -208,15 +281,23 @@ module.exports = async ({ window, openMedia, tools }) => {
     assert.equal(window.getSize()[0], 960); assert.equal(window.getSize()[1], 680);
     assert.equal(await evaluate('(async () => (await framecut.bootstrap()).value.windowPreset)()'), 'compact');
     await evaluate('framecut.setWindowPreset("standard")');
+    await evaluate('framecut.setWindowPreset("almost-maximized")');
+    const area = require('electron').screen.getDisplayMatching(window.getBounds()).workArea;
+    const near = require('../src/window-presets.cjs').fitWindow('almost-maximized', area);
+    assert.equal(window.isMaximized(), false);
+    assert.equal(window.getSize()[0], near.width); assert.equal(window.getSize()[1], near.height);
+    assert.equal(await evaluate('(async () => (await framecut.bootstrap()).value.windowPreset)()'), 'almost-maximized');
+    await evaluate('framecut.setWindowPreset("standard")');
     console.log('PASS window-size preset application and persistence');
     const initialId = await evaluate('state.media.id');
     await evaluate(`(async () => {
-      state.mode = 'precise'; document.getElementById('cut-mode').value = 'precise';
+      state.mode = 'copy'; document.getElementById('speed').value = '1.5'; document.getElementById('speed').dispatchEvent(new Event('change'));
       updateSelection(); await exportSelection('overwrite');
     })()`);
     await waitFor(`state.media.id !== ${JSON.stringify(initialId)} && video.readyState >= 2 && !state.exporting`);
     const overwritten = await require('../src/media.cjs').probe(path.join(directory, 'sample.mp4'), tools);
-    assert.ok(Math.abs(overwritten.duration - 3.5) < 0.08); assert.equal(overwritten.hasAudio, true);
+    assert.ok(Math.abs(overwritten.duration - 3.5 / 1.5) < 0.08); assert.equal(overwritten.hasAudio, true);
+    assert.equal(await evaluate('video.playbackRate'), 1); assert.equal(await evaluate('document.getElementById("speed").value'), '1');
     console.log('PASS overwrite via renderer IPC, reader release, atomic replacement and reloaded playback');
     await evaluate('document.getElementById("export-dialog").close()');
     const previousId = await evaluate('state.media.id');
@@ -232,7 +313,8 @@ module.exports = async ({ window, openMedia, tools }) => {
     app.quit();
   } catch (error) {
     console.error('SMOKE FAILED:', error);
-    const diagnostic = await evaluate('({time:video.currentTime,paused:video.paused,readyState:video.readyState,busy:state.busy,error:video.error?.message})').catch(() => null);
+    const diagnostic = await evaluate('({time:video.currentTime,paused:video.paused,readyState:video.readyState,busy:state.busy,error:video.error?.message, trimEvents:window.trimEvents})').catch(() => null);
+    console.error('Diagnostic:', JSON.stringify(diagnostic));
     await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: false, error: error.message, diagnostic }, null, 2));
     app.exit(1);
   }

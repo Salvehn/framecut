@@ -49,6 +49,62 @@ test('fast cut retains video and audio codecs', async () => {
   const result = await media.exportClip({ input: source, output, start: 2, end: 4, totalDuration: 6, mode: 'copy', tools });
   assert.equal(result.codec, 'h264'); assert.equal(result.audioCodec, 'aac'); assert.ok(result.size > 1000);
 });
+
+test('export bakes every playback speed into the selected video and audio, including fast mode', async () => {
+  for (const speed of [0.25, 0.5, 0.75, 1.25, 1.5, 2, 3]) {
+    const output = path.join(directory, `speed-${speed}.mp4`);
+    const result = await media.exportClip({ input: source, output, start: 1.25, end: 3.75, totalDuration: 6, mode: 'copy', speed, tools });
+    const expected = 2.5 / speed;
+    assert.ok(Math.abs(result.duration - expected) < 0.1, `${speed}×: duration ${result.duration}, expected ${expected}`);
+    assert.equal(result.codec, 'h264'); assert.equal(result.audioCodec, 'aac');
+    const data = JSON.parse(await media.runTool(tools.ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', output]));
+    const video = data.streams.find(stream => stream.codec_type === 'video');
+    const audio = data.streams.find(stream => stream.codec_type === 'audio');
+    assert.ok(Math.abs(Number(video.duration) - Number(audio.duration)) < 0.1, `${speed}×: video/audio duration mismatch`);
+    // The 440 Hz fixture should retain its pitch after both slow and fast exports.
+    const decoded = path.join(directory, `speed-${speed}.pcm`);
+    await media.runTool(tools.ffmpeg, ['-v', 'error', '-y', '-i', output, '-map', '0:a:0', '-ac', '1', '-ar', '48000', '-f', 's16le', decoded]);
+    const pcm = await fs.readFile(decoded);
+    const from = Math.floor(48000 * 0.1), to = Math.min(pcm.length / 2, Math.floor(48000 * (expected - 0.1)));
+    let crossings = 0;
+    for (let sample = from + 1; sample < to; sample++) if (pcm.readInt16LE((sample - 1) * 2) <= 0 && pcm.readInt16LE(sample * 2) > 0) crossings++;
+    const frequency = crossings * 48000 / (to - from);
+    assert.ok(Math.abs(frequency - 440) < 5, `${speed}×: pitch ${frequency} Hz`);
+  }
+  assert.equal(createHash('sha256').update(await fs.readFile(source)).digest('hex'), sourceHash);
+});
+
+test('sharing exports the current speed rather than only the playback preview', async () => {
+  const clip = await sharing.prepareShare({ directory: path.join(directory, 'speed-share'), input: source,
+    info: await media.probe(source, tools), start: 1.25, end: 4.25, mode: 'copy', speed: 2, tools, exportClip: media.exportClip });
+  assert.ok(Math.abs(clip.duration - 1.5) < 0.08);
+  assert.equal((await media.probe(clip.path, tools)).hasAudio, true);
+});
+
+test('speed exports stay inside the selected source segment and support very short results', async () => {
+  const marked = path.join(directory, 'marked.mp4');
+  // Only the selected second is white; any black exported frame escaped the selection.
+  await media.runTool(tools.ffmpeg, ['-v', 'error', '-f', 'lavfi', '-i', 'color=black:size=64x64:rate=30:duration=4',
+    '-vf', "drawbox=color=white:t=fill:enable='gte(t,1)*lt(t,2)'", '-c:v', 'libx264', '-preset', 'ultrafast', marked]);
+  for (const speed of [0.5, 2]) {
+    const output = path.join(directory, `marked-speed-${speed}.mp4`);
+    await media.exportClip({ input: marked, output, start: 1, end: 2, totalDuration: 4, mode: 'copy', speed, tools });
+    const levels = await media.runTool(tools.ffmpeg, ['-v', 'error', '-i', output, '-vf', 'signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=-', '-f', 'null', '-']);
+    const luminance = [...levels.matchAll(/lavfi\.signalstats\.YAVG=(\d+(?:\.\d+)?)/g)].map(match => Number(match[1]));
+    assert.ok(luminance.length > 0 && luminance.every(value => value > 220), `${speed}× escaped the selected white segment`);
+  }
+  const tiny = await media.exportClip({ input: source, output: path.join(directory, 'tiny-speed.mp4'),
+    start: 0, end: .04, totalDuration: 6, mode: 'copy', speed: 3, tools });
+  assert.ok(tiny.duration > 0 && tiny.duration < .1);
+});
+
+test('invalid export speeds cannot overwrite a source or destination', async () => {
+  for (const speed of [0, -1, 0.1, 4, NaN, Infinity, '2', null, {}]) {
+    await assert.rejects(media.exportClip({ input: source, output: source, overwrite: true,
+      start: 0, end: 2, totalDuration: 6, speed, tools }), { code: 'INVALID_SPEED' });
+  }
+  assert.equal(createHash('sha256').update(await fs.readFile(source)).digest('hex'), sourceHash);
+});
 test('explicit overwrite atomically replaces only the source with a verified clip', async () => {
   const overwriteSource = path.join(directory, 'overwrite source.mp4');
   await fs.copyFile(source, overwriteSource);
@@ -107,6 +163,8 @@ test('a video without audio exports correctly', async () => {
   await media.runTool(tools.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-i', source, '-an', '-c:v', 'copy', silent]);
   const result = await media.exportClip({ input: silent, output: path.join(directory, 'silent-clip.mp4'), start: 1, end: 2, totalDuration: 6, mode: 'precise', tools });
   assert.equal(result.hasAudio, false); assert.ok(Math.abs(result.duration - 1) < 0.08);
+  const retimed = await media.exportClip({ input: silent, output: path.join(directory, 'silent-speed.mp4'), start: 1, end: 2, totalDuration: 6, mode: 'copy', speed: 0.5, tools });
+  assert.equal(retimed.hasAudio, false); assert.ok(Math.abs(retimed.duration - 2) < 0.08);
 });
 test('converts an unsupported preview and retains sound', async () => {
   const incompatible = path.join(directory, 'legacy.avi');
