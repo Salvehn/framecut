@@ -27,6 +27,34 @@ module.exports = async ({ window, openMedia, tools }) => {
     await evaluate("applyLanguage('ru')");
     await new Promise(resolve => setTimeout(resolve, 150));
     await fs.writeFile(path.join(__dirname, '..', 'assets', 'screenshot.png'), (await window.webContents.capturePage()).toPNG());
+    const emptyLayout = await evaluate(`(() => {
+      const stage = document.getElementById('stage').getBoundingClientRect();
+      const empty = document.getElementById('empty-state').getBoundingClientRect();
+      const heading = document.querySelector('.section-label').getBoundingClientRect();
+      const version = document.getElementById('version').getBoundingClientRect();
+      const settings = document.querySelector('#settings svg').getBoundingClientRect();
+      return { fillsStage: Math.abs(stage.top - empty.top) < 1 && Math.abs(stage.bottom - empty.bottom) < 1,
+        aligned: Math.abs(version.left - settings.left) < 1 && Math.abs(heading.left + 10 - version.left) <= 1 };
+    })()`);
+    assert.equal(emptyLayout.fillsStage, true); assert.equal(emptyLayout.aligned, true);
+    await evaluate('document.getElementById("version-button").click()');
+    assert.equal(await evaluate('document.getElementById("update-panel").hidden'), false);
+    await evaluate(`renderUpdate({ status: 'downloading', version: '1.1.0', progress: .42, transferred: 42 * 1024 ** 2, total: 100 * 1024 ** 2, bytesPerSecond: 2 * 1024 ** 2 })`);
+    assert.equal(await evaluate('document.getElementById("update-progress").value'), .42);
+    assert.equal(await evaluate('document.getElementById("update-button").hidden'), true);
+    assert.equal(await evaluate('document.getElementById("version-button").disabled'), false);
+    assert.equal(await evaluate('getComputedStyle(document.getElementById("update-icon")).display'), 'none');
+    await new Promise(resolve => setTimeout(resolve, 200));
+    await fs.writeFile(path.join(directory, 'update-panel.png'), (await window.webContents.capturePage()).toPNG());
+    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))');
+    assert.equal(await evaluate('document.getElementById("update-panel").hidden'), true);
+    await evaluate(`renderUpdate({ status: 'ready', version: '1.1.0' })`);
+    assert.equal(await evaluate('document.getElementById("update-panel").hidden'), false);
+    assert.equal(await evaluate('document.getElementById("update-button").hidden'), false);
+    await evaluate('document.body.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }))');
+    assert.equal(await evaluate('document.getElementById("update-panel").hidden'), true);
+    await evaluate('renderUpdate({ status: "idle", version: state.version, development: true })');
+    console.log('PASS full-stage corner placement, sidebar alignment and update popover interaction');
     for (const language of ['ru', 'en', 'de', 'es']) {
       const result = await evaluate(`(async () => {
         document.getElementById('language').value = '${language}';

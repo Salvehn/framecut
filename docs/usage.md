@@ -42,6 +42,8 @@ Context-menu commands use the classic Explorer menu. In Windows 11, open **Show 
 
 ## Updates and local data
 
+Click the version at the bottom of the sidebar to open the update panel. It shows the current status, download progress, transferred size and speed, with a separate action to check, download, or restart and install. The panel also opens when an update is available or a check fails; dismiss it with Escape or a click outside.
+
 The installed edition checks GitHub Releases 15 seconds after launch and every six hours. Download starts only on request. The manifest is verified with Ed25519; installer size and SHA-256 are checked after download and again before execution. Updates wait for preview/export operations to finish. Portable opens the release page for manual replacement.
 
 Videos are never uploaded. Only update checks and downloads contact GitHub. Preferences, recent paths, volume, and mode choices are stored in `%APPDATA%/Framecut/preferences.json`. The Windows installer is not Authenticode-signed; update authenticity uses the bundled Ed25519 public key.

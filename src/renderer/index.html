@@ -54,9 +54,15 @@
       </div>
       <div class="sidebar-bottom">
         <button class="settings-button" id="settings"><svg><use href="#i-settings"/></svg><span data-i18n="settings"></span></button>
-        <div class="update-control"><button class="update-button" id="update-button"><svg><use href="#i-reset"/></svg><span id="update-button-text" data-i18n="checkUpdates"></span></button><button class="icon-button" id="cancel-update" data-title="cancelUpdate" hidden><svg><use href="#i-close"/></svg></button></div>
-        <progress id="update-progress" max="1" value="0" hidden></progress><p class="update-description" id="update-description"></p>
-        <span class="app-version">FRAMECUT <span id="version">1.0.0</span></span>
+        <div class="app-update" id="app-update">
+          <button class="version-button" id="version-button" aria-expanded="false" aria-controls="update-panel"><span id="version"></span><span class="spinner" id="update-spinner" hidden></span><svg id="update-icon"><use href="#i-reset"/></svg></button>
+          <section class="update-panel" id="update-panel" aria-live="polite" aria-labelledby="update-title" hidden>
+            <div class="update-panel-heading"><strong id="update-title"></strong><button class="update-close" id="close-update" data-title="close"><svg><use href="#i-close"/></svg></button></div>
+            <progress id="update-progress" max="1" value="0" hidden></progress><p class="update-metrics" id="update-metrics" hidden></p><p class="update-description" id="update-description" hidden></p>
+            <button class="update-action" id="update-button"><svg><use href="#i-reset"/></svg><span id="update-button-text"></span></button>
+            <button class="text-button update-cancel" id="cancel-update" data-i18n="cancelUpdate" hidden></button>
+          </section>
+        </div>
       </div>
     </aside>
 

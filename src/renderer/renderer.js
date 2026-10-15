@@ -8,7 +8,7 @@ const { formatTime, parseTime, formatSize } = FramecutTime;
 const video = $('video');
 const state = { language: 'en', media: null, start: 0, end: 0, busy: false, exporting: false,
   previewing: false, converting: false, mode: 'copy', replacing: false, recent: [], fallbackTried: false,
-  statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, update: { status: 'idle' } };
+  statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, version: '', update: { status: 'idle' } };
 const t = (key, values) => translate(state.language, key, values);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -145,21 +145,45 @@ function updateMetadata() {
   $('metadata').textContent = `${info.width}×${info.height} · ${Math.round(info.fps * 100) / 100} fps · ${formatSize(info.size, state.language)}`;
 }
 
+function setUpdatePanel(open) {
+  $('update-panel').hidden = !open;
+  $('version-button').setAttribute('aria-expanded', String(open));
+}
 function renderUpdate(update) {
+  const previous = state.update.status;
   state.update = update;
   const status = update.status;
-  const actions = { idle: 'checkUpdates', checking: 'updateChecking', current: 'checkUpdates', error: 'updateRetry',
-    available: update.portable || update.development ? 'updatePortable' : 'downloadUpdate', downloading: 'updateDownloading', ready: 'installUpdate', installing: 'updateInstalling' };
-  $('update-button-text').removeAttribute('data-i18n');
-  $('update-button-text').textContent = t(actions[status] || 'checkUpdates', { percent: Math.round((update.progress || 0) * 100) });
-  $('update-button').disabled = ['checking', 'downloading', 'installing'].includes(status);
-  $('update-button').classList.toggle('available', status === 'available' || status === 'ready');
+  const working = ['checking', 'downloading', 'installing'].includes(status);
+  const available = ['available', 'downloading', 'ready', 'installing'].includes(status);
+  const titles = { idle: 'updateTitle', checking: 'updateChecking', current: 'updateCurrent', error: 'updateFailed',
+    available: 'updateAvailable', downloading: 'updateDownloadingVersion', ready: 'updateReady', installing: 'updateInstalling' };
+  const actions = { idle: 'checkUpdates', current: 'checkUpdates', error: 'checkUpdates',
+    available: update.portable || update.development ? 'updatePortable' : 'downloadUpdate', ready: 'installUpdate' };
+  $('version').textContent = t('version', { version: state.version || update.version || '…' });
+  $('version-button').setAttribute('aria-label', `${$('version').textContent}. ${t('checkUpdates')}`);
+  $('version-button').classList.toggle('update-available', available);
+  $('update-spinner').hidden = !working;
+  $('update-icon').toggleAttribute('hidden', working);
+  $('update-icon').querySelector('use').setAttribute('href', `#i-${available ? 'download' : status === 'current' ? 'check' : 'reset'}`);
+  $('update-title').textContent = t(titles[status] || 'updateTitle', { version: update.version });
+  $('update-button').hidden = working;
+  $('update-button').disabled = working;
+  $('update-button').classList.toggle('primary', status === 'ready');
+  $('update-button-text').textContent = t(actions[status] || 'checkUpdates');
+  icon($('update-button'), status === 'available' ? 'download' : 'reset');
   $('cancel-update').hidden = status !== 'downloading';
   $('update-progress').hidden = status !== 'downloading';
   $('update-progress').value = update.progress || 0;
-  const descriptions = { available: 'updateAvailable', ready: 'updateReady' };
-  $('update-description').textContent = descriptions[status] ? t(descriptions[status], { version: update.version }) : '';
-  $('update-button').title = status === 'error' ? t('updateError') : status === 'current' ? t('updateCurrent') : '';
+  $('update-progress').setAttribute('aria-label', t('updateDownloadingVersion', { version: update.version }));
+  $('update-metrics').hidden = status !== 'downloading';
+  const metrics = [`${Math.round((update.progress || 0) * 100)}%`, `${formatSize(update.transferred || 0, state.language)} / ${formatSize(update.total || 0, state.language)}`];
+  if (update.bytesPerSecond) metrics.push(t('updateSpeed', { size: formatSize(update.bytesPerSecond, state.language) }));
+  $('update-metrics').textContent = metrics.join(' · ');
+  const description = status === 'error' ? 'updateError' : status === 'ready' ? 'updateRestartHint' : update.development ? 'updateDev' : '';
+  $('update-description').hidden = !description;
+  $('update-description').textContent = description ? t(description) : '';
+  $('update-description').classList.toggle('update-error', status === 'error');
+  if (previous !== status && ['available', 'ready', 'error'].includes(status)) setUpdatePanel(true);
 }
 
 function updateSelection() {
@@ -387,6 +411,12 @@ $('default-player').addEventListener('click', async () => {
   finally { $('default-player').disabled = false; }
 });
 $('close-toast').addEventListener('click', () => { $('toast').hidden = true; });
+$('version-button').addEventListener('click', () => setUpdatePanel($('update-panel').hidden));
+$('close-update').addEventListener('click', () => { setUpdatePanel(false); $('version-button').focus(); });
+document.addEventListener('pointerdown', event => { if (!$('app-update').contains(event.target)) setUpdatePanel(false); }, true);
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !$('update-panel').hidden) { setUpdatePanel(false); $('version-button').focus(); }
+});
 $('update-button').addEventListener('click', async () => {
   try {
     if (state.update.status === 'ready') unwrap(await api.installUpdate());
@@ -506,7 +536,7 @@ api.onEvent(message => {
   try {
     const data = unwrap(await api.bootstrap());
     state.recent = data.recent; state.mode = data.mode;
-    $('version').textContent = data.version;
+    state.version = data.version;
     $('volume').value = data.volume; video.volume = data.volume;
     $('cut-mode').value = state.mode;
     $('window-preset').value = data.windowPreset || 'standard';

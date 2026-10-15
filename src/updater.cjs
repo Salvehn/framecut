@@ -52,19 +52,23 @@ class Updater {
     let handle;
     let idleTimer;
     const resetTimeout = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => this.controller?.abort(), 90000); };
-    this.publish({ status: 'downloading', progress: 0 });
+    this.publish({ status: 'downloading', progress: 0, transferred: 0, total: this.manifest.installer.size, bytesPerSecond: 0 });
     try {
       await fs.mkdir(directory, { recursive: true });
       resetTimeout();
       const response = await net.fetch(this.manifest.installer.url, { signal: this.controller.signal });
       if (!response.ok) throw new Error(`Update download: ${response.status}`);
       handle = await fs.open(temporary, 'wx');
-      let downloaded = 0, lastProgress = 0;
+      let downloaded = 0, lastProgress = 0, lastBytes = 0, speedTime = Date.now(), bytesPerSecond = 0;
       for await (const chunk of response.body) {
         resetTimeout(); downloaded += chunk.length;
         if (downloaded > this.manifest.installer.size) throw new Error('Update size mismatch');
         await handle.writeFile(chunk);
-        if (Date.now() - lastProgress > 120) { this.publish({ progress: downloaded / this.manifest.installer.size }); lastProgress = Date.now(); }
+        const now = Date.now();
+        if (now - speedTime >= 500) { bytesPerSecond = (downloaded - lastBytes) * 1000 / (now - speedTime); speedTime = now; lastBytes = downloaded; }
+        if (now - lastProgress > 120) {
+          this.publish({ progress: downloaded / this.manifest.installer.size, transferred: downloaded, bytesPerSecond }); lastProgress = now;
+        }
       }
       await handle.close(); handle = null;
       await verifyFile(temporary, this.manifest.installer);

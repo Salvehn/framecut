@@ -173,6 +173,13 @@
       updateRetry: 'Reintentar actualización', updateDev: 'Instala la aplicación para actualizar automáticamente', updateInstalling: 'Instalando…' }
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], updateStrings[language]);
+  const updatePanelStrings = {
+    en: { updateTitle: 'App updates', updateFailed: 'Could not update the app', updateDownloadingVersion: 'Downloading version {version}', updateRestartHint: 'Framecut will restart to install the update.', updateSpeed: '{size}/s' },
+    ru: { updateTitle: 'Обновления приложения', updateFailed: 'Не удалось обновить приложение', updateDownloadingVersion: 'Загрузка версии {version}', updateRestartHint: 'Framecut перезапустится для установки обновления.', updateSpeed: '{size}/с' },
+    de: { updateTitle: 'App-Updates', updateFailed: 'Die App konnte nicht aktualisiert werden', updateDownloadingVersion: 'Version {version} wird geladen', updateRestartHint: 'Framecut startet zur Installation des Updates neu.', updateSpeed: '{size}/s' },
+    es: { updateTitle: 'Actualizaciones', updateFailed: 'No se pudo actualizar la aplicación', updateDownloadingVersion: 'Descargando la versión {version}', updateRestartHint: 'Framecut se reiniciará para instalar la actualización.', updateSpeed: '{size}/s' }
+  };
+  for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], updatePanelStrings[language]);
   const editingStrings = {
     en: { cutMode: 'Cut', cutFast: 'Fast', cutPrecise: 'Precise', newFile: 'New file', overwrite: 'Overwrite', overwriteHint: 'Replaces the original file.', overwriteAction: 'Overwrite', saveAction: 'Save' },
     ru: { cutMode: 'Обрезка', cutFast: 'Быстрая', cutPrecise: 'Точная', newFile: 'Новый файл', overwrite: 'Перезапись', overwriteHint: 'Исходный файл будет заменён.', overwriteAction: 'Перезаписать', saveAction: 'Сохранить' },
