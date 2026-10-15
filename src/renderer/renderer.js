@@ -604,10 +604,15 @@ api.onEvent(message => {
     state.recent = data.recent; state.mode = data.mode;
     state.version = data.version;
     const formats = data.videoExtensions.map(extension => extension === 'webm' ? 'WebM' : extension.toUpperCase());
-    const middle = Math.floor(formats.length / 2);
-    $('supported-formats').replaceChildren(...[formats.slice(0, middle), formats.slice(middle)].map(items => {
-      const row = document.createElement('span'); row.textContent = items.join(' · '); return row;
-    }));
+    const formatContent = document.createElement('span'); formatContent.className = 'formats-content';
+    const formatTrack = document.createElement('span'); formatTrack.className = 'formats-track';
+    const formatRun = document.createElement('span'); formatRun.className = 'formats-run'; formatRun.textContent = formats.join(' · ');
+    const repeatedRun = formatRun.cloneNode(true); repeatedRun.setAttribute('aria-hidden', 'true');
+    formatTrack.append(formatRun, repeatedRun);
+    const fullFormats = formatRun.cloneNode(true); fullFormats.className = 'formats-full'; fullFormats.setAttribute('aria-hidden', 'true');
+    formatContent.append(formatTrack, fullFormats);
+    $('supported-formats').replaceChildren(formatContent);
+    $('supported-formats').style.setProperty('--formats-width', `${fullFormats.scrollWidth + 32}px`);
     $('volume').value = data.volume; video.volume = data.volume;
     $('cut-mode').value = state.mode;
     $('window-preset').value = data.windowPreset || 'standard';

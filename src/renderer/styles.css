@@ -55,8 +55,16 @@ dialog{opacity:0;transform:translateY(5px);transition:opacity 180ms ease,transfo
 .sidebar-bottom{padding:10px 0 0}
 .settings-button{padding:8px 10px;border:1px solid transparent;border-radius:7px;min-height:34px;line-height:16px}
 .settings-button>span{display:block;transform:translateY(-1px)}
-.supported-formats{max-width:250px;margin-top:14px;color:#707c94;font-size:9px;line-height:1.8;letter-spacing:.15px;text-wrap:balance}
-.supported-formats>span{display:block}
+@property --formats-mask{syntax:'<percentage>';inherits:false;initial-value:12%}
+.supported-formats{position:relative;width:210px;max-width:100%;height:18px;flex-shrink:0;margin-top:14px;color:#707c94;font-size:9px;line-height:18px;letter-spacing:.15px;outline:none}
+.formats-content{position:absolute;left:50%;top:0;display:block;width:210px;max-width:calc(100vw - 230px);height:18px;overflow:hidden;transform:translateX(-50%);mask-image:linear-gradient(90deg,transparent,#000 var(--formats-mask),#000 calc(100% - var(--formats-mask)),transparent);transition:width 240ms var(--motion-ease),--formats-mask 240ms ease}
+.formats-track{display:flex;width:max-content;gap:24px;white-space:nowrap;animation:formats-marquee 24s linear infinite;transition:opacity 140ms ease}
+.formats-run{display:block;flex-shrink:0}.formats-full{position:absolute;left:50%;top:0;width:max-content;white-space:nowrap;opacity:0;transform:translateX(-50%) scale(.985);transition:opacity 180ms ease,transform 240ms var(--motion-ease)}
+.supported-formats:hover .formats-content,.supported-formats:focus .formats-content{width:var(--formats-width);--formats-mask:0%}
+.supported-formats:hover .formats-track,.supported-formats:focus .formats-track{opacity:0;animation-play-state:paused}
+.supported-formats:hover .formats-full,.supported-formats:focus .formats-full{opacity:1;transform:translateX(-50%) scale(1)}
+.supported-formats:focus-visible .formats-content{outline:1px solid #7a8bb34d;outline-offset:3px;border-radius:3px}
+@keyframes formats-marquee{to{transform:translateX(calc(-50% - 12px))}}
 .settings-button:hover{background:#22252e;border-color:#343a49}
 
 /* WireGuard Desktop's version button and update popover, in Framecut's palette. */

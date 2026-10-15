@@ -2,7 +2,7 @@
 
 Open MP4, MKV, MOV, AVI, WebM, WMV, and other video containers supported by the bundled FFmpeg. Recent files are stored locally. Unsupported playback codecs are converted into a temporary H.264/AAC preview; exporting always uses the source. Large previews take time and disk space. Temporary previews are removed on normal exit; an interrupted session can leave `framecut-*` directories in the system temporary folder.
 
-The opening panel lists the same file types as the file picker. After you change the selection, playback loops between its boundaries. Timeline clicks, seeking, keyboard jumps and frame steps stay inside that range. Pause stops the loop; resetting the selection returns to normal whole-video playback. **Preview clip** also loops the selected range until stopped. Bounds remain active while the window is in the background.
+The opening panel lists the same file types as the file picker. A compact marquee fades at both edges. Hover over it or focus it with Tab: scrolling pauses, the list expands from its center, and the masks fade out to reveal every format. Leaving reverses the animation and resumes scrolling. Reduced-motion settings disable the motion. After you change the selection, playback loops between its boundaries. Timeline clicks, seeking, keyboard jumps and frame steps stay inside that range. Pause stops the loop; resetting the selection returns to normal whole-video playback. **Preview clip** also loops the selected range until stopped. Bounds remain active while the window is in the background.
 
 ## Cut modes
 
