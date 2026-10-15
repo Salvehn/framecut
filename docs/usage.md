@@ -15,7 +15,7 @@ The primary video stream and audio tracks are retained; subtitles, attachments, 
 
 ## Save modes
 
-**New file** opens the save dialog and protects the source. **Overwrite** creates a temporary file beside the source, verifies it, releases playback readers, and atomically replaces the source. Errors or cancellation before replacement preserve the original. A successful overwrite cannot be undone.
+Hover **Save** to reveal **Save** and **Save as…**. **Save as…** opens the save dialog and protects the source. **Save** creates a temporary file beside the source, verifies it, releases playback readers, and atomically replaces the source. Errors or cancellation before replacement preserve the original. A successful overwrite cannot be undone.
 
 ## Keyboard shortcuts
 
@@ -29,7 +29,8 @@ The primary video stream and audio tracks are retained; subtitles, attachments, 
 | Comma / period | Previous / next frame |
 | F / Esc | Enter / leave full screen |
 | M | Mute |
-| Ctrl+S | Save selection |
+| Ctrl+S | Save selection over the source |
+| Ctrl+Shift+S | Save selection as a new file |
 
 Focus a range handle with Tab; use Left/Right to move by a frame, Shift for one second, and Home/End for the video edge. Physical key codes keep letter shortcuts usable with the Russian keyboard layout.
 

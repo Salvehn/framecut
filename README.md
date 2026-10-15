@@ -48,7 +48,7 @@
 1. Open a file or drop it into the window.
 2. Drag the selection boundaries or set the start and end time.
 3. Choose **Fast** or **Precise**. Fast cuts follow keyframes; precise cuts re-encode the selection.
-4. Pick **New file** or **Overwrite** next to **Save**.
+4. Hover **Save** to choose **Save** (replace the source) or **Save as…** (create a new file).
 
 Overwrite stages and verifies the result before replacing the source, then reopens the trimmed video. Failed or cancelled exports keep the original intact. A completed overwrite cannot be undone.
 

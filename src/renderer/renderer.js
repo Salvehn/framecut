@@ -7,7 +7,7 @@ const { translate } = FramecutI18n;
 const { formatTime, parseTime, formatSize } = FramecutTime;
 const video = $('video');
 const state = { language: 'en', media: null, start: 0, end: 0, busy: false, exporting: false,
-  previewing: false, converting: false, mode: 'copy', saveMode: 'new', replacing: false, recent: [], fallbackTried: false,
+  previewing: false, converting: false, mode: 'copy', replacing: false, recent: [], fallbackTried: false,
   statusKey: 'footer', thumbnailAbort: null, toastTimer: null, volumeTimer: null, initialized: false, update: { status: 'idle' } };
 const t = (key, values) => translate(state.language, key, values);
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -85,8 +85,9 @@ function updateEnabled() {
   for (const id of ['play', 'back', 'forward', 'seek', 'fullscreen', 'reset', 'preview', 'in-handle', 'out-handle']) $(id).disabled = !available;
   $('trim-fields').disabled = !available;
   $('mode-fields').disabled = state.exporting;
-  $('save-mode').disabled = state.exporting;
   $('export').disabled = !available || state.end - state.start < 0.0399;
+  $('save-menu-wrap').classList.toggle('disabled', $('export').disabled);
+  $('save-original').disabled = $('export').disabled; $('save-as').disabled = $('export').disabled;
   $('open-top').disabled = state.busy || state.exporting;
   $('open-center').disabled = state.busy || state.exporting;
   $('timeline-track').classList.toggle('disabled', !available);
@@ -182,8 +183,6 @@ function updateSelection() {
     $(id).setAttribute('aria-valuetext', formatTime(time, true));
   }
   $('ruler').querySelectorAll('span').forEach((span, index) => { span.textContent = formatTime(duration * index / 5).replace(/^00:/, ''); });
-  $('export').querySelector('span').textContent = t(state.saveMode === 'overwrite' ? 'overwriteAction' : 'saveAction');
-  title($('save-mode'), state.saveMode === 'overwrite' ? 'overwriteHint' : 'newFile');
   title($('cut-mode'), state.mode === 'copy' ? 'fastHint' : 'preciseHint');
   $('export').disabled = !state.media || state.busy || state.exporting || state.end - state.start < 0.0399;
 }
@@ -269,14 +268,14 @@ async function drawThumbnails(url) {
   finally { thumbnailVideo.removeAttribute('src'); thumbnailVideo.load(); }
 }
 
-async function exportSelection() {
+async function exportSelection(saveMode = 'overwrite') {
   if (!state.media || state.busy || state.exporting) return;
   // Validate a focused field before its value can be used for an export shortcut.
   document.activeElement?.blur();
   video.pause(); state.previewing = false; state.exporting = true;
   updateEnabled(); updateTransport();
   try {
-    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, saveMode: state.saveMode }));
+    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, saveMode }));
     if (result.cancelled) { $('export-dialog').close(); return; }
     state.replacing = false;
     if (result.updatedMedia) { state.exporting = false; await useMedia(result.updatedMedia); }
@@ -341,10 +340,19 @@ $('preview').addEventListener('click', async () => {
 $('cut-mode').addEventListener('change', event => {
   state.mode = event.target.value; updateSelection(); api.setPreferences({ mode: state.mode });
 });
-$('save-mode').addEventListener('change', event => {
-  state.saveMode = event.target.value; updateSelection(); api.setPreferences({ saveMode: state.saveMode });
+$('export').addEventListener('click', () => exportSelection('overwrite'));
+$('save-original').addEventListener('click', () => exportSelection('overwrite'));
+$('save-as').addEventListener('click', () => exportSelection('new'));
+$('save-menu-wrap').addEventListener('pointerenter', () => $('save-menu-wrap').classList.remove('menu-dismissed'));
+$('save-menu-wrap').addEventListener('focusin', event => { if (!$('save-menu-wrap').contains(event.relatedTarget)) $('save-menu-wrap').classList.remove('menu-dismissed'); });
+$('save-menu-wrap').addEventListener('keydown', event => {
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+    event.preventDefault(); event.stopPropagation();
+    const items = [$('save-original'), $('save-as')]; const current = items.indexOf(document.activeElement);
+    items[current < 0 ? (event.key === 'ArrowDown' ? 0 : 1) : (current + 1) % 2].focus();
+  }
+  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); $('save-menu-wrap').classList.add('menu-dismissed'); $('export').focus(); }
 });
-$('export').addEventListener('click', exportSelection);
 $('cancel-export').addEventListener('click', () => { $('cancel-export').disabled = true; api.cancelExport(); });
 $('done-export').addEventListener('click', () => $('export-dialog').close());
 $('reveal-export').addEventListener('click', () => api.revealExport());
@@ -451,7 +459,7 @@ window.addEventListener('keydown', event => {
   if (document.querySelector('dialog[open]')) return;
   const editing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName);
   if ((event.ctrlKey || event.metaKey) && event.code === 'KeyO') { event.preventDefault(); openRequest(() => api.openFile()); return; }
-  if ((event.ctrlKey || event.metaKey) && event.code === 'KeyS') { event.preventDefault(); exportSelection(); return; }
+  if ((event.ctrlKey || event.metaKey) && event.code === 'KeyS') { event.preventDefault(); exportSelection(event.shiftKey ? 'new' : 'overwrite'); return; }
   if (editing || event.ctrlKey || event.altKey || event.metaKey) return;
   if (event.code === 'Escape') { api.windowControl('exit-fullscreen'); return; }
   if (!state.media || state.busy || state.exporting) return;
@@ -497,11 +505,10 @@ api.onEvent(message => {
 (async () => {
   try {
     const data = unwrap(await api.bootstrap());
-    state.recent = data.recent; state.mode = data.mode; state.saveMode = data.saveMode || 'new';
+    state.recent = data.recent; state.mode = data.mode;
     $('version').textContent = data.version;
     $('volume').value = data.volume; video.volume = data.volume;
     $('cut-mode').value = state.mode;
-    $('save-mode').value = state.saveMode;
     $('window-preset').value = data.windowPreset || 'standard';
     state.update = data.update || { status: 'idle' };
     applyLanguage(data.language); updateEnabled(); state.initialized = true; api.ready();

@@ -114,7 +114,7 @@
             <strong class="clip-duration" id="clip-duration" data-title="selectedDuration">00:00:00.000</strong>
           </fieldset>
           <div class="save-controls"><fieldset id="mode-fields"><legend class="sr-only" data-i18n="cutMode"></legend><select id="cut-mode" data-title="fastHint" data-label="cutMode"><option value="copy" data-i18n="cutFast" selected></option><option value="precise" data-i18n="cutPrecise"></option></select></fieldset>
-            <div class="save-cluster"><select id="save-mode" data-label="exportMode"><option value="new" data-i18n="newFile" selected></option><option value="overwrite" data-i18n="overwrite"></option></select><button class="button primary" id="export" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveAction"></span></button></div>
+            <div class="save-cluster"><div class="save-menu-wrap disabled" id="save-menu-wrap"><button class="button primary" id="export" data-title="overwriteHint" aria-haspopup="menu" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveAction"></span></button><div class="save-hover-menu" role="menu"><button id="save-original" role="menuitem" data-title="overwriteHint"><span data-i18n="saveAction"></span><kbd>Ctrl S</kbd></button><button id="save-as" role="menuitem"><span data-i18n="saveAs"></span><kbd>Ctrl ⇧ S</kbd></button></div></div></div>
           </div>
         </div>
         <div class="timeline-footer"><span><span class="selection-dot"></span><span data-i18n="dragHandles"></span></span><span id="selection-times">00:00:00.000 — 00:00:00.000</span></div>

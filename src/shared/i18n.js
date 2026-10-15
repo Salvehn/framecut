@@ -195,6 +195,8 @@
     es: { windowSize: 'Tamaño', windowCompact: 'Compacto · 960 × 680', windowStandard: 'Estándar · 1180 × 790', windowLarge: 'Grande · 1440 × 900', windowMaximized: 'Maximizada' }
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], windowStrings[language]);
+  for (const [language, label] of Object.entries({ en: 'Save as…', ru: 'Сохранить как…', de: 'Speichern unter…', es: 'Guardar como…' })) dictionaries[language].saveAs = label;
+  for (const language of Object.keys(dictionaries)) dictionaries[language].keysHelp += ` · Ctrl+Shift+S — ${dictionaries[language].saveAs}`;
   function normalizeLanguage(language) {
     const code = String(language || '').toLowerCase().split(/[-_]/)[0];
     return Object.hasOwn(dictionaries, code) ? code : 'en';

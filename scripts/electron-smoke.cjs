@@ -19,7 +19,6 @@ module.exports = async ({ window, openMedia, tools }) => {
     await new Promise(resolve => window.webContents.once('did-finish-load', resolve));
     await waitFor('state.initialized');
     assert.equal(await evaluate('state.mode'), 'copy');
-    assert.equal(await evaluate('state.saveMode'), 'new');
     assert.equal(await evaluate('CSS.supports("appearance", "base-select")'), true);
     if (!window.isVisible()) await new Promise(resolve => window.once('ready-to-show', resolve));
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -91,8 +90,7 @@ module.exports = async ({ window, openMedia, tools }) => {
     const initialId = await evaluate('state.media.id');
     await evaluate(`(async () => {
       state.mode = 'precise'; document.getElementById('cut-mode').value = 'precise';
-      state.saveMode = 'overwrite'; document.getElementById('save-mode').value = 'overwrite';
-      updateSelection(); await exportSelection();
+      updateSelection(); await exportSelection('overwrite');
     })()`);
     await waitFor(`state.media.id !== ${JSON.stringify(initialId)} && video.readyState >= 2 && !state.exporting`);
     const overwritten = await require('../src/media.cjs').probe(path.join(directory, 'sample.mp4'), tools);
