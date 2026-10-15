@@ -25,6 +25,11 @@ module.exports = async ({ window, openMedia, tools }) => {
     const errors = [];
     window.webContents.on('console-message', (_event, details) => { if (details.level === 'error') errors.push(details.message); });
     await evaluate("applyLanguage('ru')");
+    const initialSize = window.getSize();
+    window.setSize(2048, 1000);
+    await new Promise(resolve => setTimeout(resolve, 180));
+    await fs.writeFile(path.join(directory, 'empty-large.png'), (await window.webContents.capturePage()).toPNG());
+    window.setSize(...initialSize);
     await new Promise(resolve => setTimeout(resolve, 150));
     await fs.writeFile(path.join(__dirname, '..', 'assets', 'screenshot.png'), (await window.webContents.capturePage()).toPNG());
     const emptyLayout = await evaluate(`(() => {
@@ -256,6 +261,7 @@ module.exports = async ({ window, openMedia, tools }) => {
     const { dialog } = require('electron');
     const originalSaveDialog = dialog.showSaveDialog;
     const exportAsPath = path.join(directory, 'export-as.mp4');
+    await fs.rm(exportAsPath, { force: true });
     let suggestedExtension;
     dialog.showSaveDialog = async (_window, options) => { suggestedExtension = path.extname(options.defaultPath); return { canceled: false, filePath: exportAsPath }; };
     try {
@@ -263,6 +269,9 @@ module.exports = async ({ window, openMedia, tools }) => {
       const newFile = await require('../src/media.cjs').probe(exportAsPath, tools);
       assert.ok(Math.abs(newFile.duration - 2.8) < .08); assert.equal(suggestedExtension, '.mp4');
       assert.equal((await fs.readFile(path.join(directory, 'sample.mp4'))).equals(sourceBeforeShare), true);
+      await waitFor('state.recent[0]?.name === "export-as.mp4"');
+      assert.equal(await evaluate('state.recent.some(item => item.name === "sample.mp4")'), true);
+      assert.ok(Math.abs(await evaluate('state.recent[0].duration') - 2.8) < .08);
       assert.equal(await evaluate('video.playbackRate'), 1.25);
       await evaluate('document.getElementById("export-dialog").close(); document.getElementById("speed").value = "1"; document.getElementById("speed").dispatchEvent(new Event("change"))');
     } finally { dialog.showSaveDialog = originalSaveDialog; }
@@ -307,15 +316,34 @@ module.exports = async ({ window, openMedia, tools }) => {
     await evaluate('framecut.setWindowPreset("standard")');
     console.log('PASS window-size preset application and persistence');
     const initialId = await evaluate('state.media.id');
-    await evaluate(`(async () => {
-      state.mode = 'copy'; document.getElementById('speed').value = '1.5'; document.getElementById('speed').dispatchEvent(new Event('change'));
-      updateSelection(); await exportSelection('overwrite');
-    })()`);
-    await waitFor(`state.media.id !== ${JSON.stringify(initialId)} && video.readyState >= 2 && !state.exporting`);
-    const overwritten = await require('../src/media.cjs').probe(path.join(directory, 'sample.mp4'), tools);
-    assert.ok(Math.abs(overwritten.duration - 3.5 / 1.5) < 0.08); assert.equal(overwritten.hasAudio, true);
-    assert.equal(await evaluate('video.playbackRate'), 1); assert.equal(await evaluate('document.getElementById("speed").value'), '1');
-    console.log('PASS overwrite via renderer IPC, reader release, atomic replacement and reloaded playback');
+    const secondExport = path.join(directory, 'export-repeat.mp4');
+    await fs.rm(secondExport, { force: true });
+    await fs.writeFile(path.join(directory, 'sample_clip.mp4'), 'existing export');
+    dialog.showSaveDialog = async (_window, options) => {
+      assert.equal(path.basename(options.defaultPath), 'sample_clip_2.mp4');
+      return { canceled: false, filePath: secondExport };
+    };
+    try {
+      await evaluate(`(async () => {
+        state.mode = 'copy'; document.getElementById('speed').value = '1.5'; document.getElementById('speed').dispatchEvent(new Event('change'));
+        updateSelection(); await exportSelection();
+      })()`);
+      const secondInfo = await require('../src/media.cjs').probe(secondExport, tools);
+      assert.ok(Math.abs(secondInfo.duration - 3.5 / 1.5) < .08); assert.equal(secondInfo.hasAudio, true);
+      assert.equal(await evaluate('state.media.id'), initialId);
+      assert.equal((await fs.readFile(path.join(directory, 'sample.mp4'))).equals(sourceBeforeShare), true);
+      assert.equal(await evaluate('state.recent[0].name'), 'export-repeat.mp4');
+      assert.equal(await evaluate('state.recent.filter(item => item.name === "sample.mp4").length'), 1);
+      assert.ok(Math.abs(await evaluate('state.recent.find(item => item.name === "sample.mp4").duration') - 8) < .08);
+      await evaluate('document.getElementById("export-dialog").close()');
+      dialog.showSaveDialog = async () => ({ canceled: false, filePath: path.join(directory, 'sample.mp4') });
+      const sourceProtection = await evaluate('(async () => framecut.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: "copy", saveMode: "new" }))()');
+      assert.equal(sourceProtection.code, 'SOURCE_OVERWRITE');
+      const legacyProtection = await evaluate('(async () => framecut.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: "copy", saveMode: "overwrite" }))()');
+      assert.equal(legacyProtection.code, 'SOURCE_OVERWRITE');
+      assert.equal((await fs.readFile(path.join(directory, 'sample.mp4'))).equals(sourceBeforeShare), true);
+    } finally { dialog.showSaveDialog = originalSaveDialog; }
+    console.log('PASS primary Export creates a new file, proposes unused names, protects the source and updates recent history');
     await evaluate('document.getElementById("export-dialog").close()');
     const previousId = await evaluate('state.media.id');
     const secondInstance = require('node:child_process').spawn(process.execPath, ['.', '--smoke-test', path.join(directory, 'sample.mp4')], {
@@ -324,9 +352,38 @@ module.exports = async ({ window, openMedia, tools }) => {
     secondInstance.on('error', error => console.error(error));
     await waitFor(`state.media.id !== ${JSON.stringify(previousId)} && video.readyState >= 2 && !state.busy`);
     console.log('PASS opening a video from a second instance / Explorer command line');
+    const recentBeforeClose = await evaluate('state.recent');
+    const closedUrl = await evaluate('video.src');
+    await evaluate('document.getElementById("close-video").click()');
+    await waitFor('!state.media && !state.busy');
+    assert.equal(await evaluate('video.paused && !video.getAttribute("src") && document.body.classList.contains("empty") && !document.getElementById("empty-state").hidden'), true);
+    assert.equal(await evaluate('document.getElementById("filmstrip").children.length'), 0);
+    assert.deepEqual(await evaluate('state.recent'), recentBeforeClose);
+    assert.equal((await require('electron').net.fetch(closedUrl)).status, 404);
+    const exportedRecent = recentBeforeClose.find(item => item.name === 'export-as.mp4');
+    await evaluate(`openRequest(() => api.openRecent(${JSON.stringify(exportedRecent.id)}))`);
+    await waitFor('state.media?.name === "export-as.mp4" && video.readyState >= 2 && !state.busy');
+    await evaluate('window.dispatchEvent(new KeyboardEvent("keydown", { ctrlKey: true, code: "KeyW" }))');
+    await waitFor('!state.media && !state.busy');
+    assert.equal(window.isDestroyed(), false);
+    console.log('PASS exported files in recent history, close video by button / Ctrl+W, source release and reopen from history');
+    const clickBackdrop = async id => evaluate(`(() => {
+      const modal = document.getElementById(${JSON.stringify(id)}), bounds = modal.getBoundingClientRect();
+      for (const type of ['pointerdown', 'click']) modal.dispatchEvent(new MouseEvent(type, { clientX: bounds.left - 10, clientY: bounds.top, bubbles: true }));
+    })()`);
+    await evaluate('document.getElementById("settings-dialog").showModal()');
+    await clickBackdrop('settings-dialog');
+    assert.equal(await evaluate('document.getElementById("settings-dialog").open'), false);
+    await evaluate('document.getElementById("export-dialog").showModal(); state.exporting = true');
+    await clickBackdrop('export-dialog');
+    assert.equal(await evaluate('document.getElementById("export-dialog").open'), true);
+    await evaluate('state.exporting = false');
+    await clickBackdrop('export-dialog');
+    assert.equal(await evaluate('document.getElementById("export-dialog").open'), false);
+    console.log('PASS backdrop closes idle dialogs and leaves active export dialogs open');
     assert.deepEqual(errors, []);
     console.log('PASS playback, seek, thumbnails, selection, clip preview, precise export and audio');
-    await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: true, languages: ['ru', 'en', 'de', 'es'], duration: result.duration, hasAudio: result.hasAudio, overwrite: true, customDropdown: true }, null, 2));
+    await fs.writeFile(path.join(directory, 'smoke-result.json'), JSON.stringify({ ok: true, languages: ['ru', 'en', 'de', 'es'], duration: result.duration, hasAudio: result.hasAudio, exportNew: true, closeVideo: true, backdrop: true, customDropdown: true }, null, 2));
     app.quit();
   } catch (error) {
     console.error('SMOKE FAILED:', error);

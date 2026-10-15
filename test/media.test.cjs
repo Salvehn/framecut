@@ -140,6 +140,22 @@ test('failed export preserves an existing destination and cleans up temporary fi
   assert.equal(await fs.readFile(output, 'utf8'), 'keep this existing file');
   assert.equal((await fs.readdir(directory)).filter(name => name.startsWith('.framecut-')).length, 0);
 });
+
+test('new-file exports refuse existing files and cannot race to replace a destination', async () => {
+  const output = path.join(directory, 'exclusive.mp4');
+  const existing = Buffer.from('existing destination');
+  await fs.writeFile(output, existing);
+  await assert.rejects(media.exportClip({ input: source, output, start: 1, end: 2, totalDuration: 6, tools, exclusive: true }), { code: 'EEXIST' });
+  assert.deepEqual(await fs.readFile(output), existing);
+  await fs.unlink(output);
+  await assert.rejects(media.exportClip({ input: source, output, start: 1, end: 2, totalDuration: 6, tools, exclusive: true,
+    beforeReplace: () => fs.writeFile(output, existing) }), { code: 'EEXIST' });
+  assert.deepEqual(await fs.readFile(output), existing);
+  await fs.unlink(output);
+  const result = await media.exportClip({ input: source, output, start: 1, end: 2, totalDuration: 6, tools, exclusive: true });
+  assert.ok(Math.abs(result.duration - 1) < .08);
+  assert.equal((await fs.readdir(directory)).filter(name => name.startsWith('.framecut-')).length, 0);
+});
 test('cancellation stops FFmpeg and leaves no partial output', async () => {
   const controller = new AbortController();
   const output = path.join(directory, 'cancelled.mp4');

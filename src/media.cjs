@@ -2,6 +2,7 @@
 
 const { spawn } = require('node:child_process');
 const fs = require('node:fs/promises');
+const { COPYFILE_EXCL } = require('node:fs').constants;
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 
@@ -134,12 +135,16 @@ async function sameFile(left, right) {
   } catch { return false; }
 }
 
-async function exportClip({ input, output, start, end, totalDuration, mode = 'precise', speed = 1, overwrite = false, beforeReplace, tools, signal, onProgress }) {
+async function exportClip({ input, output, start, end, totalDuration, mode = 'precise', speed = 1, overwrite = false, exclusive = false, beforeReplace, tools, signal, onProgress }) {
   const range = validateRange(start, end, totalDuration);
   mode = exportMode(mode, speed);
   const isSource = await sameFile(input, output);
   if (isSource && !overwrite) throw Object.assign(new Error('Cannot overwrite source in new-file mode'), { code: 'SOURCE_OVERWRITE' });
   if (overwrite && !isSource) throw Object.assign(new Error('Overwrite destination must be the source'), { code: 'SOURCE_OVERWRITE' });
+  if (exclusive) {
+    try { await fs.lstat(output); throw Object.assign(new Error('Destination already exists'), { code: 'EEXIST' }); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
   const temporary = path.join(path.dirname(output), `.framecut-${randomUUID()}${path.extname(output)}`);
   try {
     await runTool(tools.ffmpeg, exportArgs(input, temporary, range.start, range.duration, mode, speed), {
@@ -150,7 +155,13 @@ async function exportClip({ input, output, start, end, totalDuration, mode = 'pr
     if (result.size === 0) throw new Error('Export is empty');
     if (beforeReplace) await beforeReplace();
     if (signal?.aborted) throw Object.assign(new Error('Cancelled'), { code: 'CANCELLED' });
-    await fs.rename(temporary, output);
+    if (exclusive) {
+      try { await fs.link(temporary, output); }
+      catch (error) {
+        if (!['EPERM', 'ENOTSUP', 'ENOSYS', 'EINVAL'].includes(error.code)) throw error;
+        await fs.copyFile(temporary, output, COPYFILE_EXCL);
+      }
+    } else await fs.rename(temporary, output);
     onProgress?.(1);
     return { output, ...result };
   } finally {

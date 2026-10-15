@@ -6,7 +6,7 @@
 | `src/preload.cjs` | Narrow renderer bridge; no arbitrary process or filesystem access |
 | `src/renderer/` | Local UI, playback, time selection, settings, localization |
 | `src/media.cjs` | FFmpeg/FFprobe processes, metadata, preview conversion, staged exports |
-| `src/media-protocol.cjs` | Random-token media access and byte-range streaming; reader release before overwrite |
+| `src/media-protocol.cjs` | Random-token media access and byte-range streaming; reader release when closing video |
 | `src/update-core.cjs`, `src/updater.cjs` | Ed25519 manifest verification, bounded download, SHA-256 validation, updater lifecycle |
 | `src/sharing.cjs` | Temporary MP4 export, bounded cache cleanup, native file clipboard, Telegram handoff and Discord launch |
 | `src/windows-integration.cjs` | Per-user capabilities, Open With registration and context-menu settings |
@@ -14,7 +14,7 @@
 
 The renderer is sandboxed with context isolation and Node.js disabled. CSP allows bundled code and selected local media. New windows, navigation and permission requests are blocked. Media URLs expose random IDs mapped to opened files; they do not accept arbitrary filesystem paths. FFmpeg uses argument arrays without a shell.
 
-Exports are written and probed in the destination directory before atomic replacement. Overwrite requires an explicit save mode. The renderer and media protocol release Windows readers before replacing the source. Failed replacements restore playback of the original.
+Exports are written and probed in the destination directory, then added exclusively as new files. The export IPC rejects source replacement. Existing destinations are protected by an exclusive filesystem operation, including a destination created during encoding. Closing a video clears its protocol URLs, closes readers, and releases its temporary preview while retaining recent history.
 
 Windows registration stays in HKCU. It adds owned ProgIDs, Open With entries, capabilities and video context commands. It does not take over existing file defaults; users select those in Windows Settings. Uninstall removes only Framecut-owned registrations. The context-menu preference survives upgrades.
 

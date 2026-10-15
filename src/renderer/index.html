@@ -71,7 +71,7 @@
 
     <main class="main">
       <header class="workspace-header">
-        <div class="heading"><h1 id="file-heading" data-i18n="session"></h1></div>
+        <div class="heading"><h1 id="file-heading" data-i18n="session"></h1><button class="icon-button close-video" id="close-video" data-title="closeVideo" disabled><svg><use href="#i-close"/></svg></button></div>
         <button class="button secondary" id="open-top"><svg><use href="#i-plus"/></svg><span data-i18n="openVideo"></span><kbd>Ctrl O</kbd></button>
       </header>
 
@@ -126,7 +126,7 @@
             <strong class="clip-duration" id="clip-duration" data-title="selectedDuration">00:00:00.000</strong>
           </fieldset>
           <div class="save-controls"><fieldset id="mode-fields"><legend class="sr-only" data-i18n="cutMode"></legend><select id="cut-mode" data-title="fastHint" data-label="cutMode"><button type="button"><selectedcontent></selectedcontent></button><option value="copy" selected><span data-i18n="cutFast"></span><small data-i18n="cutCopyHint"></small></option><option value="precise"><span data-i18n="cutPrecise"></span><small data-i18n="cutFrameHint"></small></option></select></fieldset>
-            <div class="save-cluster"><div class="save-menu-wrap disabled" id="save-menu-wrap"><button class="button primary" id="export" data-title="overwriteHint" aria-haspopup="menu" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveAction"></span></button><div class="save-hover-menu" role="menu"><button id="save-original" role="menuitem" data-title="overwriteHint"><span data-i18n="saveAction"></span><kbd>Ctrl S</kbd></button><button id="save-as" role="menuitem"><span data-i18n="saveAs"></span><kbd>Ctrl ⇧ S</kbd></button></div></div></div>
+            <div class="save-cluster"><button class="button primary" id="export" data-title="safeExport" disabled><svg><use href="#i-download"/></svg><span data-i18n="saveAction"></span></button></div>
             <button class="button secondary share-button" id="share" data-title="share" disabled><svg><use href="#i-share"/></svg></button>
           </div>
         </div>

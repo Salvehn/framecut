@@ -31,7 +31,6 @@ let opening;
 let exporting;
 let lastExport;
 let updater;
-let releaseSource;
 let closing = false;
 let shareDirectory;
 const shares = new Map();
@@ -89,6 +88,16 @@ function recentPublic() {
   return preferences.recent.map(({ id, path: filePath, duration, openedAt }) => ({ id, name: path.basename(filePath), duration, openedAt }));
 }
 
+async function rememberFile(filePath, info) {
+  const resolved = await fs.realpath(filePath);
+  const matches = item => item.path.toLowerCase() === resolved.toLowerCase();
+  const existing = preferences.recent.find(matches);
+  preferences.recent = [{ id: existing?.id || randomUUID(), path: resolved, duration: info.duration, openedAt: Date.now() },
+    ...preferences.recent.filter(item => !matches(item))].slice(0, 12);
+  await savePreferences().catch(() => {});
+  emit('recent', { items: recentPublic() });
+}
+
 async function openMedia(filePath) {
   if (exporting || updater?.state.status === 'installing') throw Object.assign(new Error('Export or update is in progress'), { code: 'BUSY' });
   opening?.abort();
@@ -104,11 +113,7 @@ async function openMedia(filePath) {
     const id = randomUUID();
     current = { id, path: resolved, info, previewPath: null };
     mediaFiles.clear();
-    const existing = preferences.recent.find(item => item.path.toLowerCase() === resolved.toLowerCase());
-    preferences.recent = [{ id: existing?.id || randomUUID(), path: resolved, duration: info.duration, openedAt: Date.now() },
-      ...preferences.recent.filter(item => item.path.toLowerCase() !== resolved.toLowerCase())].slice(0, 12);
-    await savePreferences().catch(() => {});
-    emit('recent', { items: recentPublic() });
+    await rememberFile(resolved, info);
     return { id, name: path.basename(resolved), ...info, url: mediaUrl(resolved), nativePreview: media.nativePreviewSupported(resolved, info) };
   } finally {
     if (opening === controller) opening = null;
@@ -138,62 +143,40 @@ async function chooseAndExport(options) {
   if (exporting || opening || updater?.state.status === 'installing') throw Object.assign(new Error('Busy'), { code: 'BUSY' });
   if (!current || options?.id !== current.id) throw new Error('Unknown media');
   if (!['precise', 'copy'].includes(options.mode)) throw Object.assign(new Error('Unknown mode'), { code: 'INVALID_MODE' });
-  if (!['new', 'overwrite'].includes(options.saveMode)) throw Object.assign(new Error('Unknown save mode'), { code: 'INVALID_MODE' });
+  if (options.saveMode && options.saveMode !== 'new') throw Object.assign(new Error('Export requires a new file'), { code: 'SOURCE_OVERWRITE' });
   media.validateRange(options.start, options.end, current.info.duration);
   const speed = media.validateSpeed(options.speed);
   const mode = media.exportMode(options.mode, speed);
   const selected = current;
   const sourceExtension = path.extname(selected.path).toLowerCase();
-  const overwrite = options.saveMode === 'overwrite';
   const extension = mode === 'precise' ? '.mp4' : ['.mp4', '.mkv', '.mov', '.webm', '.m4v', '.avi', '.ts', '.wmv', '.mpg', '.mpeg', '.ogv', '.flv', '.mts', '.m2ts', '.3gp'].includes(sourceExtension) ? sourceExtension : '.mkv';
-  const suggested = `${path.basename(selected.path, path.extname(selected.path))}_clip${extension}`;
-  let filePath = selected.path;
-  if (!overwrite) {
-    const result = await dialog.showSaveDialog(window, {
-      title: t('saveDialog'), buttonLabel: t('saveClip'), defaultPath: path.join(path.dirname(selected.path), suggested),
-      filters: [{ name: mode === 'precise' ? 'MP4 (H.264 / AAC)' : extension.slice(1).toUpperCase(), extensions: [extension.slice(1)] }]
-    });
-    if (result.canceled || !result.filePath) return { cancelled: true };
-    filePath = result.filePath;
+  const base = path.join(path.dirname(selected.path), `${path.basename(selected.path, path.extname(selected.path))}_clip`);
+  let suggested = `${base}${extension}`, suffix = 2;
+  while (true) {
+    try { await fs.access(suggested); suggested = `${base}_${suffix++}${extension}`; }
+    catch (error) { if (error.code !== 'ENOENT') throw error; break; }
   }
+  const destination = await dialog.showSaveDialog(window, {
+    title: t('saveDialog'), buttonLabel: t('saveClip'), defaultPath: suggested,
+    filters: [{ name: mode === 'precise' ? 'MP4 (H.264 / AAC)' : extension.slice(1).toUpperCase(), extensions: [extension.slice(1)] }]
+  });
+  if (destination.canceled || !destination.filePath) return { cancelled: true };
+  const filePath = destination.filePath;
   // Reserve the operation before any further asynchronous work.
   if (exporting || current !== selected) throw Object.assign(new Error('Busy'), { code: 'BUSY' });
   const controller = new AbortController();
   exporting = controller;
   emit('export-start');
-  let sourceWasReleased = false;
-  let succeeded = false;
   try {
     const result = await media.exportClip({ input: selected.path, output: filePath,
       start: options.start, end: options.end, totalDuration: selected.info.duration,
-      mode, speed, overwrite, tools, signal: controller.signal,
-      beforeReplace: overwrite ? async () => {
-        sourceWasReleased = true;
-        await new Promise((resolve, reject) => {
-          const timer = setTimeout(() => { releaseSource = null; reject(new Error('Could not release source')); }, 8000);
-          releaseSource = () => { clearTimeout(timer); releaseSource = null; resolve(); };
-          emit('source-replacing');
-        });
-        await closeMediaStreams(selected.path);
-        if (selected.previewPath) await closeMediaStreams(selected.previewPath);
-      } : undefined,
+      mode, speed, exclusive: true, tools, signal: controller.signal,
       onProgress: progress => emit('export-progress', { progress }) });
     lastExport = result.output;
-    let updatedMedia;
-    if (overwrite) {
-      const id = randomUUID();
-      current = { id, path: selected.path, info: result, previewPath: null };
-      mediaFiles.clear();
-      updatedMedia = { id, name: path.basename(selected.path), ...result, url: mediaUrl(selected.path), nativePreview: media.nativePreviewSupported(selected.path, result) };
-      const recent = preferences.recent.find(item => item.path === selected.path);
-      if (recent) recent.duration = result.duration;
-      await savePreferences().catch(() => {}); emit('recent', { items: recentPublic() });
-    }
-    succeeded = true;
-    return { name: path.basename(result.output), size: result.size, duration: result.duration, updatedMedia };
+    await rememberFile(result.output, result).catch(() => {});
+    return { name: path.basename(result.output), size: result.size, duration: result.duration };
   } finally {
     exporting = null; emit('export-finished');
-    if (sourceWasReleased && !succeeded) emit('source-restore');
   }
 }
 
@@ -219,7 +202,6 @@ function registerIpc() {
     if (fitted.maximized) window.maximize();
     return preset;
   });
-  handle('release-source', () => { releaseSource?.(); });
   handle('renderer-ready', () => { rendererReady = true; openPendingVideo(); });
   handle('integration-state', integrationState);
   handle('integration-context', async enabled => {
@@ -254,6 +236,18 @@ function registerIpc() {
     return openMedia(filePath);
   });
   handle('prepare-preview', preparePreview);
+  handle('close-media', async id => {
+    if (exporting || opening || updater?.state.status === 'installing') throw Object.assign(new Error('Busy'), { code: 'BUSY' });
+    if (!current || current.id !== id) throw new Error('Unknown media');
+    const selected = current;
+    current = null; mediaFiles.clear();
+    await closeMediaStreams(selected.path);
+    if (selected.previewPath) {
+      await closeMediaStreams(selected.previewPath);
+      await fs.rm(selected.previewPath, { force: true }).catch(() => {});
+    }
+    return true;
+  });
   handle('prepare-share', async options => {
     if (exporting || opening || updater?.state.status === 'installing') throw Object.assign(new Error('Busy'), { code: 'BUSY' });
     if (!current || options?.id !== current.id) throw new Error('Unknown media');

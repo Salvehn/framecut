@@ -37,7 +37,7 @@
 - **Everyday playback.** Seek, step through frames, change speed, adjust sound, and go full screen.
 - **A simpler trim.** Drag the in/out handles, enter timecodes, and preview just your selection.
 - **Fast by default.** Keep the original streams or switch to precise re-encoding.
-- **Export at your speed.** Bake playback speed into video and audio, create a new file or safely replace the source.
+- **Export at your speed.** Bake playback speed into video and audio in a new file, with the source protected.
 - **Precise timeline zoom.** Zoom around the pointer or playhead; hold a trim handle to magnify it temporarily.
 - **Windows integration.** Open videos from Explorer and choose Framecut as the default player in Settings.
 - **Share clips.** Temporary MP4 without a Save dialog: Telegram recipient picker, Discord clipboard handoff, and native file dragging.
@@ -50,9 +50,9 @@
 1. Open a file or drop it into the window.
 2. Drag the selection boundaries or set the start and end time.
 3. Choose **Original quality** or **Frame accurate** and set the speed. A changed speed automatically uses precise encoding.
-4. Hover **Export** to choose **Export** (replace the source) or **Export as…** (create a new file).
+4. Click **Export** and choose a new file. The result appears in recent files.
 
-Overwrite stages and verifies the result before replacing the source, then reopens the trimmed video. Failed or cancelled exports keep the original intact. A completed overwrite cannot be undone.
+Exports are verified before being added as new files. Existing files and the source are protected. Close a video with **× beside its name** or **Ctrl+W** to return to the opening panel.
 
 See [playback, shortcuts, and format notes](docs/usage.md) for details.
 

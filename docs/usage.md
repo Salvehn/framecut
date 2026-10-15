@@ -2,6 +2,8 @@
 
 Open MP4, MKV, MOV, AVI, WebM, WMV, and other video containers supported by the bundled FFmpeg. Recent files are stored locally. Unsupported playback codecs are converted into a temporary H.264/AAC preview; exporting always uses the source. Large previews take time and disk space. Temporary previews are removed on normal exit; an interrupted session can leave `framecut-*` directories in the system temporary folder.
 
+Close the current video using **× beside its name** or **Ctrl+W** to return to the opening panel. Playback stops and the file is released; recent history and settings remain. Newly exported files are added to recent history as well as opened files. Reopening an existing file updates its entry without duplicating it.
+
 The opening panel lists the same file types as the file picker. A compact marquee fades at both edges. Hover over it or focus it with Tab: scrolling pauses, the list expands from its center, and the masks fade out to reveal every format. Leaving reverses the animation and resumes scrolling. Reduced-motion settings disable the motion. After you change the selection, playback loops between its boundaries. Timeline clicks, seeking, keyboard jumps and frame steps stay inside that range. Pause stops the loop; resetting the selection returns to normal whole-video playback. **Preview clip** also loops the selected range until stopped. Bounds remain active while the window is in the background.
 
 ## Cut modes
@@ -9,11 +11,11 @@ The opening panel lists the same file types as the file picker. A compact marque
 | Mode | Behavior |
 | --- | --- |
 | Original quality, the default | Copies video and audio without re-encoding. Starts at a keyframe; the actual start and duration may differ from the selected boundaries. |
-| Frame accurate | Re-encodes the selection. A new file uses MP4 / H.264 / AAC, CRF 18. Overwrite keeps the source container with compatible codecs. |
+| Frame accurate | Re-encodes the selection into a new MP4 / H.264 / AAC file, CRF 18. |
 
 Timecodes accept `HH:MM:SS.mmm`, `MM:SS.mmm`, or seconds. Minimum selection length: 0.04 seconds. Exact boundaries are limited by video frames and audio samples. Odd dimensions are rounded down to even values for YUV 4:2:0.
 
-The speed control applies to playback, file exports, and temporary sharing clips. At any speed other than 1×, Framecut automatically re-encodes video and audio with the chosen tempo and preserves audio pitch. The displayed export duration reflects that speed. Returning to 1× restores the chosen cut mode. After overwriting the source, playback returns to 1× because the speed is already included in the new video.
+The speed control applies to playback, file exports, and temporary sharing clips. At any speed other than 1×, Framecut automatically re-encodes video and audio with the chosen tempo and preserves audio pitch. The displayed export duration reflects that speed. Returning to 1× restores the chosen cut mode.
 
 ## Timeline zoom
 
@@ -25,15 +27,18 @@ While dragging, the video previews the active boundary and the playback marker s
 
 The primary video stream and audio tracks are retained; subtitles, attachments, and additional video streams are excluded. Precise HDR color conversion is not implemented. Fast cuts preserve the original encoded video. Frame stepping uses average frame rate, so variable-frame-rate video can differ by a frame.
 
-## Export modes
+## Export
 
-Hover **Export** to reveal **Export** and **Export as…**. **Export as…** opens the file dialog and protects the source. **Export** creates a temporary file beside the source, verifies it, releases playback readers, and atomically replaces the source. Errors or cancellation before replacement preserve the original. A successful overwrite cannot be undone.
+**Export** opens the file dialog and proposes an unused filename. Every export creates a new file and protects the source and other existing destinations, including a file created by another application while exporting. The player keeps the current video open. A finished export appears in recent history.
+
+Click outside a modal to dismiss it when idle. Backdrop clicks are ignored during loading, preview preparation, and export.
 
 ## Keyboard shortcuts
 
 | Keys | Action |
 | --- | --- |
 | Ctrl+O | Open video |
+| Ctrl+W | Close current video |
 | Space | Play / pause |
 | Left / Right | Seek 5 seconds |
 | Shift+Left / Shift+Right | Seek 10 seconds |
@@ -41,8 +46,7 @@ Hover **Export** to reveal **Export** and **Export as…**. **Export as…** ope
 | Comma / period | Previous / next frame |
 | F / Esc | Enter / leave full screen |
 | M | Mute |
-| Ctrl+S | Export selection over the source |
-| Ctrl+Shift+S | Export selection as a new file |
+| Ctrl+S / Ctrl+Shift+S | Export selection as a new file |
 
 Focus a range handle with Tab; use Left/Right to move by a frame, Shift for one second, and Home/End for the video edge. Physical key codes keep letter shortcuts usable with the Russian keyboard layout.
 

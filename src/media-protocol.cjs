@@ -4,11 +4,12 @@ const { Readable } = require('node:stream');
 const path = require('node:path');
 const readers = new Map();
 async function closeMediaStreams(filePath) {
-  await Promise.all([...readers.get(filePath) || []].map(stream => new Promise(resolve => {
+  const active = readers.get(filePath);
+  await Promise.all([...active || []].map(stream => new Promise(resolve => {
     if (stream.closed) return resolve();
     stream.once('close', resolve); stream.destroy();
   })));
-  readers.delete(filePath);
+  if (readers.get(filePath) === active && !active?.size) readers.delete(filePath);
 }
 
 async function serveMedia(request, files) {

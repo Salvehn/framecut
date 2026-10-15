@@ -208,6 +208,11 @@
     es: { cutMode: 'Calidad de exportación', cutFast: 'Calidad original', cutPrecise: 'Por fotogramas', cutCopyHint: 'Sin recodificar · el inicio puede variar', cutFrameHint: 'Límites exactos · recodifica el clip', windowAlmostMaximized: 'Casi maximizada' }
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], exportModeStrings[language]);
+  for (const [language, label] of Object.entries({ en: 'Close video (Ctrl+W)', ru: 'Закрыть видео (Ctrl+W)', de: 'Video schließen (Strg+W)', es: 'Cerrar vídeo (Ctrl+W)' })) {
+    dictionaries[language].closeVideo = label;
+    dictionaries[language].keysHelp += ` · ${label}`;
+  }
+  for (const [language, label] of Object.entries({ en: 'That file already exists. Choose a new filename.', ru: 'Такой файл уже существует. Выберите новое имя.', de: 'Die Datei existiert bereits. Einen neuen Namen wählen.', es: 'El archivo ya existe. Elige un nombre nuevo.' })) dictionaries[language].errorDestinationExists = label;
   const settingsStrings = {
     en: { settings: 'Settings', windowsIntegration: 'Windows', contextMenu: 'Explorer context menu', defaultPlayer: 'Default video player', makeDefault: 'Set as default', installedRequired: 'Available in the installed version.', contextOpen: 'Open in Framecut', selectDefault: 'Choose Framecut in Windows Settings.' },
     ru: { settings: 'Настройки', windowsIntegration: 'Windows', contextMenu: 'Контекстное меню', defaultPlayer: 'Плеер по умолчанию', makeDefault: 'Выбрать', installedRequired: 'Доступно в установленной версии.', contextOpen: 'Открыть в Framecut', selectDefault: 'Выберите Framecut в настройках Windows.' },
@@ -224,7 +229,6 @@
   };
   for (const language of Object.keys(dictionaries)) Object.assign(dictionaries[language], windowStrings[language]);
   for (const [language, label] of Object.entries({ en: 'Export as…', ru: 'Экспорт как…', de: 'Exportieren als…', es: 'Exportar como…' })) dictionaries[language].saveAs = label;
-  for (const language of Object.keys(dictionaries)) dictionaries[language].keysHelp += ` · Ctrl+Shift+S — ${dictionaries[language].saveAs}`;
   function normalizeLanguage(language) {
     const code = String(language || '').toLowerCase().split(/[-_]/)[0];
     return Object.hasOwn(dictionaries, code) ? code : 'en';

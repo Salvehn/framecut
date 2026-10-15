@@ -31,7 +31,7 @@ function toast(key, error = false) {
 function reportError(error, fallback = 'errorGeneric') {
   if (error.code === 'CANCELLED') return;
   const keys = { ENOENT: 'errorMissing', EACCES: 'errorExport', EPERM: 'errorExport', NO_VIDEO: 'errorVideo', NO_DURATION: 'errorDuration',
-    INVALID_RANGE: 'errorRange', SOURCE_OVERWRITE: 'errorOverwrite', BUSY: 'errorBusy', TIMEOUT: 'errorTimeout' };
+    INVALID_RANGE: 'errorRange', SOURCE_OVERWRITE: 'errorOverwrite', EEXIST: 'errorDestinationExists', BUSY: 'errorBusy', TIMEOUT: 'errorTimeout' };
   toast(keys[error.code] || fallback, true);
 }
 
@@ -90,12 +90,11 @@ function updateEnabled() {
   $('mode-fields').disabled = state.exporting;
   $('export').disabled = !available || state.end - state.start < 0.0399;
   $('share').disabled = $('export').disabled;
-  $('save-menu-wrap').classList.toggle('disabled', $('export').disabled);
-  $('save-original').disabled = $('export').disabled; $('save-as').disabled = $('export').disabled;
   $('open-top').disabled = state.busy || state.exporting;
   $('open-center').disabled = state.busy || state.exporting;
   $('timeline-track').classList.toggle('disabled', !available);
   $('speed').disabled = !available;
+  $('close-video').disabled = !available;
   updateZoomControls();
   renderRecent();
 }
@@ -136,6 +135,39 @@ async function useMedia(data) {
   if (!data.nativePreview) await convertPreview();
   else { video.src = data.url; video.load(); }
 }
+
+async function closeVideo() {
+  if (!state.media || state.busy || state.exporting) return;
+  const selected = state.media;
+  finishTimelineDrag?.(); pausePlayback();
+  state.thumbnailAbort?.abort(); clearTimeout(thumbnailTimer); cancelAnimationFrame(zoomFrame);
+  state.busy = true; updateEnabled();
+  video.removeAttribute('src'); video.load();
+  try {
+    unwrap(await api.closeMedia(selected.id));
+    if (state.media !== selected) return;
+    state.media = null; state.share = null; state.start = 0; state.end = 0; state.zoom = 1;
+    state.previewing = false; state.fallbackTried = false;
+    $('share-dialog').close(); $('export-dialog').close();
+    $('timeline-content').style.width = '100%'; $('timeline-viewport').scrollLeft = 0;
+    $('filmstrip').replaceChildren(); $('speed').value = '1'; video.playbackRate = 1;
+    $('stage').classList.remove('has-video'); $('empty-state').hidden = false; $('video-badge').hidden = true;
+    $('file-heading').dataset.i18n = 'session'; $('file-heading').textContent = t('session'); $('file-heading').removeAttribute('title');
+    $('metadata').textContent = ''; state.statusKey = 'footer'; $('status').textContent = t('footer');
+    document.body.classList.add('empty');
+    updateSelection(); updatePosition(); updateTransport();
+    api.windowControl('exit-fullscreen');
+  } catch (error) {
+    if (state.media === selected) { video.src = selected.url; video.load(); }
+    reportError(error);
+  } finally {
+    if (state.media === selected || !state.media) {
+      state.busy = false; updateEnabled();
+      if (!state.media) $('open-center').focus();
+    }
+  }
+}
+$('close-video').addEventListener('click', closeVideo);
 
 async function convertPreview() {
   if (!state.media || state.converting) return;
@@ -449,21 +481,15 @@ $('share-file').addEventListener('dragstart', event => { event.preventDefault();
 $('share-file').addEventListener('click', () => sendShare('clipboard'));
 $('share-file').addEventListener('keydown', event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); sendShare('clipboard'); } });
 
-async function exportSelection(saveMode = 'overwrite') {
+async function exportSelection() {
   if (!state.media || state.busy || state.exporting) return;
   // Validate a focused field before its value can be used for an export shortcut.
   document.activeElement?.blur();
   pausePlayback(); state.previewing = false; state.exporting = true;
   updateEnabled(); updateTransport();
   try {
-    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, speed: Number($('speed').value), saveMode }));
+    const result = unwrap(await api.exportClip({ id: state.media.id, start: state.start, end: state.end, mode: state.mode, speed: Number($('speed').value), saveMode: 'new' }));
     if (result.cancelled) { $('export-dialog').close(); return; }
-    state.replacing = false;
-    if (result.updatedMedia) {
-      // The exported speed is already baked into the source; avoid applying it a second time.
-      $('speed').value = '1'; video.playbackRate = 1;
-      state.exporting = false; await useMedia(result.updatedMedia);
-    }
     $('export-title').textContent = t('complete');
     $('export-subtitle').textContent = `${result.name} · ${formatTime(result.duration, true)} · ${formatSize(result.size, state.language)}`;
     $('export-progress-wrap').hidden = true;
@@ -525,23 +551,23 @@ $('preview').addEventListener('click', async () => {
 $('cut-mode').addEventListener('change', event => {
   state.mode = event.target.value; updateSelection(); api.setPreferences({ mode: state.mode });
 });
-$('export').addEventListener('click', () => exportSelection('overwrite'));
-$('save-original').addEventListener('click', () => exportSelection('overwrite'));
-$('save-as').addEventListener('click', () => exportSelection('new'));
-$('save-menu-wrap').addEventListener('pointerenter', () => $('save-menu-wrap').classList.remove('menu-dismissed'));
-$('save-menu-wrap').addEventListener('focusin', event => { if (!$('save-menu-wrap').contains(event.relatedTarget)) $('save-menu-wrap').classList.remove('menu-dismissed'); });
-$('save-menu-wrap').addEventListener('keydown', event => {
-  if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
-    event.preventDefault(); event.stopPropagation();
-    const items = [$('save-original'), $('save-as')]; const current = items.indexOf(document.activeElement);
-    items[current < 0 ? (event.key === 'ArrowDown' ? 0 : 1) : (current + 1) % 2].focus();
-  }
-  if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); $('save-menu-wrap').classList.add('menu-dismissed'); $('export').focus(); }
-});
+$('export').addEventListener('click', exportSelection);
 $('cancel-export').addEventListener('click', () => { $('cancel-export').disabled = true; api.cancelExport(); });
 $('done-export').addEventListener('click', () => $('export-dialog').close());
 $('reveal-export').addEventListener('click', () => api.revealExport());
 $('export-dialog').addEventListener('cancel', event => { if (state.exporting) { event.preventDefault(); api.cancelExport(); } });
+for (const modal of document.querySelectorAll('dialog')) {
+  const outside = event => {
+    const bounds = modal.getBoundingClientRect();
+    return event.target === modal && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom);
+  };
+  let pressedBackdrop = false;
+  modal.addEventListener('pointerdown', event => { pressedBackdrop = outside(event); });
+  modal.addEventListener('click', event => {
+    if (pressedBackdrop && outside(event) && !state.busy && !state.exporting && !state.sharing && !state.converting) modal.close();
+    pressedBackdrop = false;
+  });
+}
 $('shortcuts').addEventListener('click', () => $('shortcuts-dialog').showModal());
 $('close-shortcuts').addEventListener('click', () => $('shortcuts-dialog').close());
 $('settings').addEventListener('click', async () => {
@@ -662,7 +688,7 @@ video.addEventListener('ended', async () => {
   } else { playbackRequested = false; state.previewing = false; }
   updateTransport();
 });
-video.addEventListener('loadedmetadata', () => { video.playbackRate = Number($('speed').value); updateEnabled(); updatePosition(); drawThumbnails(video.src); });
+video.addEventListener('loadedmetadata', () => { if (!state.media || !video.getAttribute('src')) return; video.playbackRate = Number($('speed').value); updateEnabled(); updatePosition(); drawThumbnails(video.src); });
 video.addEventListener('error', () => {
   if (state.converting || state.replacing || !state.media || !video.getAttribute('src')) return;
   if (!state.fallbackTried) convertPreview();
@@ -684,7 +710,8 @@ window.addEventListener('keydown', event => {
   if (document.querySelector('dialog[open]')) return;
   const editing = ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName);
   if ((event.ctrlKey || event.metaKey) && event.code === 'KeyO') { event.preventDefault(); openRequest(() => api.openFile()); return; }
-  if ((event.ctrlKey || event.metaKey) && event.code === 'KeyS') { event.preventDefault(); exportSelection(event.shiftKey ? 'new' : 'overwrite'); return; }
+  if ((event.ctrlKey || event.metaKey) && event.code === 'KeyW') { event.preventDefault(); closeVideo(); return; }
+  if ((event.ctrlKey || event.metaKey) && event.code === 'KeyS') { event.preventDefault(); exportSelection(); return; }
   if (editing || event.ctrlKey || event.altKey || event.metaKey) return;
   if (event.code === 'Escape') { api.windowControl('exit-fullscreen'); return; }
   if (!state.media || state.busy || state.exporting) return;
@@ -706,11 +733,6 @@ window.addEventListener('keydown', event => {
 api.onEvent(message => {
   if (message.type === 'external-media') { useMedia(message.media).catch(reportError).finally(() => setBusy(false)); }
   if (message.type === 'external-error') { setBusy(false); reportError({ code: message.code }); }
-  if (message.type === 'source-replacing') {
-    state.replacing = true; state.thumbnailAbort?.abort(); pausePlayback(); video.removeAttribute('src'); video.load();
-    api.releaseSource();
-  }
-  if (message.type === 'source-restore') { state.replacing = false; video.src = state.media.url; video.load(); }
   if (message.type === 'update-state') renderUpdate(message.state);
   if (message.type === 'loading') { pausePlayback(); setBusy(true); }
   if (message.type === 'recent') { state.recent = message.items; renderRecent(); }
