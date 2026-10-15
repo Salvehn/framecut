@@ -21,6 +21,8 @@ Use **− / +** to zoom around the playhead, or **Ctrl + mouse wheel** over the 
 
 Hold either trim handle still for a moment to temporarily magnify the surrounding frames. Continue dragging for finer control; release to restore the previous scale and scroll position. Moving normally trims without automatic zoom. The ruler and visible thumbnails update to the current scale; reduced-motion settings remove the zoom animation.
 
+While dragging, the video previews the active boundary and the playback marker stays hidden to keep the handle clear. Releasing restores the previous playback position, clamped to the updated selection if necessary.
+
 The primary video stream and audio tracks are retained; subtitles, attachments, and additional video streams are excluded. Precise HDR color conversion is not implemented. Fast cuts preserve the original encoded video. Frame stepping uses average frame rate, so variable-frame-rate video can differ by a frame.
 
 ## Export modes

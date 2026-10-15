@@ -595,7 +595,7 @@ $('language').addEventListener('change', async event => {
 for (const [id, boundary] of [['in-handle', 'start'], ['out-handle', 'end']]) {
   const handle = $(id);
   let dragging = false;
-  let holdTimer, lastX, holdX, offset, previousView;
+  let holdTimer, lastX, holdX, offset, previousView, originalTime;
   const schedulePrecision = () => {
     clearTimeout(holdTimer);
     holdX = lastX;
@@ -610,12 +610,13 @@ for (const [id, boundary] of [['in-handle', 'start'], ['out-handle', 'end']]) {
     if (!dragging) return;
     dragging = false; clearTimeout(holdTimer); finishTimelineDrag = null;
     $('timeline-track').classList.remove('dragging'); $('timeline-viewport').classList.remove('precision');
+    if (state.media && !state.replacing && !state.busy && !state.exporting) seek(originalTime);
     if (previousView) { animateTimelineZoom(previousView.zoom, null, previousView.scroll); previousView = null; }
   };
   handle.addEventListener('pointerdown', event => {
     if (handle.disabled || event.button !== 0) return;
     finishTimelineDrag?.(); cancelAnimationFrame(zoomFrame);
-    event.preventDefault(); event.stopPropagation(); dragging = true; pausePlayback(); state.previewing = false;
+    event.preventDefault(); event.stopPropagation(); dragging = true; originalTime = video.currentTime; pausePlayback(); state.previewing = false;
     lastX = event.clientX; offset = lastX - (handle.getBoundingClientRect().left + handle.offsetWidth / 2);
     previousView = null; finishTimelineDrag = finish; schedulePrecision();
     $('timeline-track').classList.add('dragging');

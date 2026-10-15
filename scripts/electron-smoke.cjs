@@ -192,6 +192,8 @@ module.exports = async ({ window, openMedia, tools }) => {
     assert.ok(Math.abs(await evaluate('video.currentTime - zoomExpectedSeek')) < .001);
     await evaluate('document.getElementById("zoom-reset").click()');
     await waitFor('state.zoom === 1');
+    await evaluate('seek(2.25)');
+    await waitFor('!video.seeking');
     // Trusted events stay inside the isolated Electron test window and do not move the system cursor.
     window.webContents.debugger.attach('1.3');
     const handlePoint = await evaluate('(() => { const bounds = document.getElementById("in-handle").getBoundingClientRect(); return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }; })()');
@@ -199,6 +201,7 @@ module.exports = async ({ window, openMedia, tools }) => {
     await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', ...handlePoint });
     await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', buttons: 1, clickCount: 1, ...handlePoint });
     await waitFor('state.zoom === 4');
+    assert.equal(await evaluate('getComputedStyle(document.getElementById("playhead")).opacity'), '0');
     assert.ok(Math.abs(await evaluate('state.start') - 1.25) < .001, 'Holding a handle must not change its time');
     await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', button: 'left', buttons: 1, x: handlePoint.x + 20, y: handlePoint.y });
     await waitFor('state.start > 1.25', 2000);
@@ -209,7 +212,21 @@ module.exports = async ({ window, openMedia, tools }) => {
     await fs.writeFile(path.join(directory, 'timeline-zoom.png'), (await window.webContents.capturePage()).toPNG());
     await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', buttons: 0, clickCount: 1, x: handlePoint.x + 20, y: handlePoint.y });
     await waitFor('state.zoom === 1');
+    await waitFor('!video.seeking');
     assert.equal(await evaluate('state.start'), preciseStart);
+    assert.ok(Math.abs(await evaluate('video.currentTime') - 2.25) < .001, 'Restore the playback position after trimming');
+    assert.equal(await evaluate('getComputedStyle(document.getElementById("playhead")).opacity'), '1');
+    await evaluate('seek(state.start)');
+    await waitFor('!video.seeking');
+    const quickHandle = await evaluate('(() => { const bounds = document.getElementById("in-handle").getBoundingClientRect(); return { x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 }; })()');
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', ...quickHandle });
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mousePressed', button: 'left', buttons: 1, clickCount: 1, ...quickHandle });
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseMoved', button: 'left', buttons: 1, x: quickHandle.x + 20, y: quickHandle.y });
+    await waitFor(`state.start > ${preciseStart}`);
+    await window.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type: 'mouseReleased', button: 'left', buttons: 0, clickCount: 1, x: quickHandle.x + 20, y: quickHandle.y });
+    await waitFor('!video.seeking && !finishTimelineDrag');
+    assert.ok(Math.abs(await evaluate('video.currentTime - state.start')) < .001, 'A restored cursor must stay inside the new selection');
+    assert.equal(await evaluate('state.zoom'), 1);
     window.webContents.debugger.detach();
     await evaluate('changeBoundary("start", 1.25); seek(1.25)');
     console.log('PASS manual timeline zoom around cursor, scrolling, accurate zoomed seek, held-handle precision zoom and restored view');
